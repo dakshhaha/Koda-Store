@@ -4,6 +4,8 @@
 
 **Koda Store** is a modern, high-performance, open-source e-commerce template built with Next.js 16 (App Router), React 19, and SQLite. It features an advanced AI-powered customer support system, multi-currency support, IP-based localization, and a comprehensive admin dashboard.
 
+🌍 **Live Demo:** [koda-store.vercel.app](https://koda-store.vercel.app/)
+
 [![Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/dakshisoffline) [![UPI](https://img.shields.io/badge/UPI-dakshdeepoffx%40fam-4CAF50?style=for-the-badge&logo=google-pay&logoColor=white)](upi://pay?pa=dakshdeepoffx@fam&pn=Developer)
 
 ---
