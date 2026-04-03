@@ -15,7 +15,7 @@
 * **🌍 Global Ready**: Automatic IP-based localization and currency conversion.
 * **💳 Multi-Gateway Payments**: Ready-to-go integrations for Stripe, PayPal, and Razorpay.
 * **🛠️ Admin Dashboard**: Full control over products, orders, users, announcements, coupons, and support tickets.
-* **🗄️ Lightweight & Fast Database**: Uses Prisma with Better-SQLite3 for instant setup and blisteringly fast local reads/writes, easily scalable to PostgreSQL.
+* **🗄️ Scalable Database**: Fully integrated with PostgreSQL via Prisma 7 edge adapters, ready for serverless deployments on platforms like Vercel and Supabase.
 
 ---
 
@@ -40,7 +40,7 @@ cp .env.example .env
 ```
 
 ### 3. Database Setup
-Initialize the SQLite database and run the initial migrations:
+Ensure your Supabase/PostgreSQL connection string is correctly set in `.env` as `DATABASE_URL`. Then build the schema:
 ```bash
 npx prisma generate
 npx prisma db push
@@ -71,22 +71,10 @@ Your app will be available on port 3000. Production database is stored in the Do
 
 ---
 
-## 🐘 Using PostgreSQL 
-By default, Koda Store uses SQLite for easy local setup. However, moving to PostgreSQL is simple:
+## 🐘 Vercel & Edge Deployment
+Koda Store is configured natively for serverless environments using Prisma 7 and the `@prisma/adapter-pg` driver.
 
-1. Open `prisma/schema.prisma`
-2. Change the provider block:
-   ```prisma
-   datasource db {
-     provider = "postgresql" // Changed from "sqlite"
-     url      = env("DATABASE_URL")
-   }
-   ```
-3. Update your `.env` file with your PostgreSQL connection string:
-   ```env
-   DATABASE_URL="postgresql://user:password@localhost:5432/kodastore?schema=public"
-   ```
-4. Run `npx prisma generate` and `npx prisma db push` to push the schema to your Postgres instance.
+Unlike SQLite, which loses data on serverless lambdas, this configuration routes all interactions directly to your remote Postgres database (like Supabase), ensuring safe data architecture and high performance.
 
 ---
 
