@@ -43,7 +43,7 @@ function detectCountry(request: NextRequest): string {
   return "US";
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // 1. SKIP STATIC & API & IMAGES
