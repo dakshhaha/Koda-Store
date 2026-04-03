@@ -1,0 +1,165 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id                      String           @id @default(uuid())
+  email                   String           @unique
+  passwordHash            String
+  name                    String?
+  role                    String           @default("customer")
+  phone                   String?
+  address                 String?
+  city                    String?
+  state                   String?
+  zip                     String?
+  country                 String?
+  locale                  String           @default("en-US")
+  currency                String           @default("USD")
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
+  passwordChangedAt       DateTime?
+  addresses               Address[]
+  orders                  Order[]
+  reviews                 Review[]
+  assignedSupportSessions SupportSession[] @relation("AssignedSupportAgent")
+  supportSessions         SupportSession[] @relation("CustomerSupportSessions")
+}
+
+model Address {
+  id           String   @id @default(uuid())
+  userId       String
+  type         String   @default("shipping")
+  name         String?
+  addressLine1 String
+  addressLine2 String?
+  city         String
+  state        String
+  zip          String
+  country      String
+  isDefault    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id])
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  rating    Int      @default(5)
+  comment   String?
+  productId String
+  userId    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  product   Product  @relation(fields: [productId], references: [id])
+}
+
+model Category {
+  id       String    @id @default(uuid())
+  name     String    @unique
+  slug     String    @unique
+  image    String?
+  products Product[]
+}
+
+model Product {
+  id          String      @id @default(uuid())
+  name        String
+  slug        String      @unique
+  description String
+  price       Float
+  salePrice   Float?
+  images      String      @default("[]")
+  stock       Int         @default(0)
+  featured    Boolean     @default(false)
+  categoryId  String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  orderItems  OrderItem[]
+  category    Category?   @relation(fields: [categoryId], references: [id])
+  reviews     Review[]
+}
+
+model SupportSession {
+  id              String   @id @default(uuid())
+  userId          String?
+  assignedAgentId String?
+  status          String   @default("ai_handling")
+  messages        String   @default("[]")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  assignedAgent   User?    @relation("AssignedSupportAgent", fields: [assignedAgentId], references: [id])
+  user            User?    @relation("CustomerSupportSessions", fields: [userId], references: [id])
+}
+
+model Order {
+  id              String      @id @default(uuid())
+  userId          String
+  subtotal        Float       @default(0)
+  discountAmount  Float       @default(0)
+  couponCode      String?
+  currency        String      @default("USD")
+  total           Float
+  status          String      @default("pending")
+  paymentGateway  String
+  paymentId       String?
+  shippingAddress String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  user            User        @relation(fields: [userId], references: [id])
+  items           OrderItem[]
+}
+
+model OrderItem {
+  id        String  @id @default(uuid())
+  orderId   String
+  productId String
+  quantity  Int
+  price     Float
+  product   Product @relation(fields: [productId], references: [id])
+  order     Order   @relation(fields: [orderId], references: [id])
+}
+
+model SiteSettings {
+  id                 String  @id @default("global")
+  storeName          String  @default("Koda Store")
+  paymentGateway     String  @default("stripe")
+  hiddenGateways     String  @default("[]")
+  aiProvider         String  @default("openai")
+  currency           String  @default("USD")
+  taxRate            Float   @default(0)
+  maintenanceMode    Boolean @default(false)
+  maintenanceMessage String  @default("We're currently performing maintenance. Please check back shortly.")
+}
+
+model Announcement {
+  id        String   @id @default(uuid())
+  title     String
+  content   String
+  type      String   @default("info")
+  active    Boolean  @default(true)
+  priority  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Coupon {
+  id            String    @id @default(uuid())
+  code          String    @unique
+  description   String?
+  discountType  String
+  discountValue Float
+  minOrder      Float     @default(0)
+  maxDiscount   Float?
+  active        Boolean   @default(true)
+  startsAt      DateTime?
+  endsAt        DateTime?
+  usageLimit    Int?
+  usedCount     Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}

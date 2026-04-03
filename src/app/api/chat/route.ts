@@ -1,0 +1,467 @@
+import { NextResponse } from "next/server";
+import { getAIProvider, type AIProviderName } from "@/lib/ai";
+import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
+
+interface PersistedChatMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+  timestamp?: string;
+  isHuman?: boolean;
+}
+
+function safeParseMessages(raw: string | null | undefined): PersistedChatMessage[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+
+    const normalized: PersistedChatMessage[] = [];
+    for (const message of parsed) {
+      if (!message || typeof message !== "object") continue;
+
+      const role = (message as { role?: string }).role;
+      const content = (message as { content?: string }).content;
+      if ((role !== "user" && role !== "assistant" && role !== "system") || typeof content !== "string") {
+        continue;
+      }
+
+      normalized.push({
+        role,
+        content,
+        timestamp:
+          typeof (message as { timestamp?: string }).timestamp === "string"
+            ? (message as { timestamp?: string }).timestamp
+            : undefined,
+        isHuman:
+          typeof (message as { isHuman?: boolean }).isHuman === "boolean"
+            ? (message as { isHuman?: boolean }).isHuman
+            : undefined,
+      });
+    }
+
+    return normalized;
+  } catch {
+    return [];
+  }
+}
+
+function normalizeMessages(input: unknown): PersistedChatMessage[] {
+  if (!Array.isArray(input)) return [];
+
+  const normalized: PersistedChatMessage[] = [];
+  for (const message of input) {
+    if (!message || typeof message !== "object") continue;
+
+    const role = (message as { role?: string }).role;
+    const content = (message as { content?: string }).content;
+    if ((role !== "user" && role !== "assistant" && role !== "system") || typeof content !== "string") {
+      continue;
+    }
+
+    normalized.push({ role, content });
+  }
+
+  return normalized;
+}
+
+function summarizeCatalog(
+  products: Array<{
+    id: string;
+    name: string;
+    price: number;
+    salePrice: number | null;
+    description: string;
+    slug: string;
+    images: string;
+    category: { name: string } | null;
+  }>
+): string {
+  if (!products.length) return "No product data available.";
+
+  return products
+    .map((product) => {
+      const amount = product.salePrice ?? product.price;
+      const regularPrice = product.salePrice ? ` (was ${product.price.toFixed(2)})` : "";
+      const snippet = product.description.slice(0, 140);
+      let firstImage = "";
+      try {
+        const parsed = JSON.parse(product.images);
+        if (Array.isArray(parsed) && parsed.length > 0) firstImage = parsed[0];
+      } catch {}
+
+      return `- ${product.name} [ID:${product.id}] [Category:${product.category?.name || "General"}] Price:${amount.toFixed(2)}${regularPrice} | Slug:${product.slug} | Image:${firstImage} | ${snippet}`;
+    })
+    .join("\n");
+}
+
+function summarizeCoupons(
+  coupons: Array<{
+    code: string;
+    discountType: string;
+    discountValue: number;
+    minOrder: number;
+    maxDiscount: number | null;
+    endsAt: Date | null;
+  }>
+): string {
+  if (!coupons.length) return "No active offers right now.";
+
+  return coupons
+    .map((coupon) => {
+      const value = coupon.discountType === "percent" ? `${coupon.discountValue}% OFF` : `${coupon.discountValue.toFixed(2)} OFF`;
+      const expiry = coupon.endsAt ? `, expires ${coupon.endsAt.toISOString().slice(0, 10)}` : "";
+      const cap = coupon.maxDiscount ? `, max discount ${coupon.maxDiscount.toFixed(2)}` : "";
+      return `- ${coupon.code}: ${value}, min order ${coupon.minOrder.toFixed(2)}${cap}${expiry}`;
+    })
+    .join("\n");
+}
+
+function summarizeUserOrders(
+  orders: Array<{
+    id: string;
+    status: string;
+    total: number;
+    paymentGateway: string;
+    couponCode: string | null;
+    createdAt: Date;
+  }>
+): string {
+  if (!orders.length) return "Customer has no orders yet.";
+
+  return orders
+    .map(
+      (order) =>
+        `- ${order.id.slice(0, 8).toUpperCase()} | ${order.status.toUpperCase()} | ${order.total.toFixed(2)} | ${order.paymentGateway.toUpperCase()} | ${order.createdAt.toISOString().slice(0, 10)}${order.couponCode ? ` | coupon ${order.couponCode}` : ""}`
+    )
+    .join("\n");
+}
+
+function shouldEscalateByUserMessage(message: string): boolean {
+  if (!message) return false;
+  return /(human|agent|representative|supervisor|complaint|chargeback|legal|speak to someone|talk to someone)/i.test(message);
+}
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const sessionId = searchParams.get("sessionId");
+    const userSession = await getSession();
+
+    if (!sessionId) {
+      if (!userSession) {
+        return NextResponse.json({ success: true, sessions: [] });
+      }
+      const sessions = await prisma.supportSession.findMany({
+        where: { userId: userSession.userId },
+        orderBy: { updatedAt: "desc" },
+        take: 10,
+        select: { id: true, status: true, updatedAt: true, messages: true }
+      });
+      
+      const sessionList = sessions.map(s => {
+        const msgs = safeParseMessages(s.messages).filter(m => m.role !== "system");
+        const lastMsg = msgs[msgs.length - 1]?.content || "No messages yet";
+        return {
+          id: s.id,
+          status: s.status,
+          updatedAt: s.updatedAt,
+          preview: lastMsg.slice(0, 40) + (lastMsg.length > 40 ? "..." : "")
+        };
+      });
+
+      return NextResponse.json({ success: true, sessions: sessionList });
+    }
+
+    const supportSession = await prisma.supportSession.findUnique({ where: { id: sessionId } });
+
+    if (!supportSession) {
+      return NextResponse.json({
+        success: true,
+        status: "ai_handling",
+        messages: [],
+      });
+    }
+
+    const isPrivileged = userSession?.role === "admin" || userSession?.role === "support";
+    if (supportSession.userId && !isPrivileged && userSession?.userId !== supportSession.userId) {
+      return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+    }
+
+    const messages = safeParseMessages(supportSession.messages).filter((message) => message.role !== "system");
+
+    return NextResponse.json({
+      success: true,
+      status: supportSession.status,
+      messages,
+      updatedAt: supportSession.updatedAt,
+    });
+  } catch (error) {
+    console.error("Chat session fetch error:", error);
+    return NextResponse.json({ error: "Failed to fetch chat session." }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const { messages, provider, sessionId } = await request.json();
+    const userSession = await getSession();
+    const normalizedMessages = normalizeMessages(messages);
+
+    if (normalizedMessages.length === 0) {
+      return NextResponse.json({ error: "Invalid messages array" }, { status: 400 });
+    }
+
+    const existingSupportSession = sessionId
+      ? await prisma.supportSession.findUnique({ where: { id: sessionId } })
+      : null;
+
+    if (existingSupportSession?.userId && userSession?.userId !== existingSupportSession.userId) {
+      return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+    }
+
+    const latestUserMessage =
+      [...normalizedMessages]
+        .reverse()
+        .find((message) => message.role === "user")
+        ?.content.trim() || "";
+
+    if (existingSupportSession?.status === "resolved") {
+      return NextResponse.json({ error: "This chat has been resolved. Please start a new one." }, { status: 400 });
+    }
+
+    if ((existingSupportSession?.status === "human_needed" || existingSupportSession?.status === "agent_active") && sessionId) {
+      const waitingNotice = "A human support agent has taken over this chat. Please hold on while they reply.";
+      const existingMessages = safeParseMessages(existingSupportSession.messages).filter((message) => message.role !== "system");
+      const waitingMessages = [...existingMessages];
+
+      const latestUserEntry = [...normalizedMessages]
+        .reverse()
+        .find((message) => message.role === "user");
+
+      if (latestUserEntry) {
+        const latestStored = waitingMessages[waitingMessages.length - 1];
+        const isDuplicateUserMessage =
+          latestStored?.role === "user" && latestStored.content.trim() === latestUserEntry.content.trim();
+
+        if (!isDuplicateUserMessage) {
+          waitingMessages.push({
+            role: "user",
+            content: latestUserEntry.content,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
+
+      await prisma.supportSession.update({
+        where: { id: sessionId },
+        data: {
+          messages: JSON.stringify(waitingMessages),
+          status: existingSupportSession?.status || "human_needed",
+          userId: existingSupportSession.userId || userSession?.userId || null,
+          updatedAt: new Date(),
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        provider: "human-handoff-silent",
+        response: "", // Stay silent
+        status: existingSupportSession?.status || "human_needed",
+      });
+    }
+
+    const [products, categories, activeCoupons, recommendedOffers, recentOrders, settings] = await Promise.all([
+      prisma.product.findMany({
+        take: 50,
+        orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
+        select: {
+          id: true,
+          name: true,
+          price: true,
+          salePrice: true,
+          description: true,
+          slug: true,
+          stock: true,
+          images: true,
+          category: { select: { name: true } },
+        },
+      }),
+      prisma.category.findMany({ select: { name: true, slug: true } }),
+      prisma.coupon.findMany({
+        where: {
+          active: true,
+          OR: [{ startsAt: null }, { startsAt: { lte: new Date() } }],
+          AND: [{ OR: [{ endsAt: null }, { endsAt: { gte: new Date() } }] }],
+        },
+        take: 10,
+        orderBy: [{ endsAt: "asc" }, { createdAt: "desc" }],
+        select: {
+          code: true,
+          discountType: true,
+          discountValue: true,
+          minOrder: true,
+          maxDiscount: true,
+          endsAt: true,
+        },
+      }),
+      prisma.product.findMany({
+        where: {
+          OR: [{ salePrice: { not: null } }, { featured: true }],
+        },
+        take: 10,
+        orderBy: [{ salePrice: "asc" }, { featured: "desc" }, { createdAt: "desc" }],
+        select: {
+          name: true,
+          slug: true,
+          price: true,
+          salePrice: true,
+          category: { select: { name: true } },
+        },
+      }),
+      userSession
+        ? prisma.order.findMany({
+            where: { userId: userSession.userId },
+            orderBy: { createdAt: "desc" },
+            take: 6,
+            select: {
+              id: true,
+              status: true,
+              total: true,
+              paymentGateway: true,
+              couponCode: true,
+              createdAt: true,
+            },
+          })
+        : Promise.resolve([]),
+      prisma.siteSettings.findUnique({ where: { id: "global" } }),
+    ]);
+
+    const catalogContext = summarizeCatalog(products);
+    const categoryContext = categories.map(c => `- ${c.name} (/categories/${c.slug})`).join("\n");
+    const couponContext = summarizeCoupons(activeCoupons);
+    const userOrderContext = summarizeUserOrders(recentOrders);
+    const offerContext = recommendedOffers
+      .map((product) => {
+        const amount = product.salePrice ?? product.price;
+        return `- ${product.name} (${product.category?.name || "General"}) at ${amount.toFixed(2)}${product.salePrice ? `, was ${product.price.toFixed(2)}` : ""} -> /products/${product.slug}`;
+      })
+      .join("\n");
+
+    const systemPrompt = `You are Koda, the Koda Store Expert Assistant. Use the following database context to provide accurate, helpful support.
+
+STORE INFO:
+- Name: ${settings?.storeName || "Koda Store"}
+- Current Currency: ${settings?.currency || "USD"}
+
+CATEGORIES:
+${categoryContext}
+
+DETAILED CATALOG (TOP PRODUCTS):
+${catalogContext}
+
+ACTIVE COUPONS & DEALS:
+${couponContext}
+
+CURRENT DEALS/SALE ITEMS:
+${offerContext || "No specific sales currently."}
+
+CUSTOMER ACCOUNT CONTEXT:
+- Name: ${userSession?.name || "Guest"}
+- Email: ${userSession?.email || "N/A"}
+${userOrderContext}
+
+AI RULES:
+1. HELP USERS FIND DEALS: If they ask for offers, show them the COUPONS and SALE ITEMS.
+2. PRODUCT RENDERING (CRITICAL): Whenever you mention or recommend a product, you MUST embed it using this exact syntax: [[PRODUCT:id:name:price:image_url:slug]].
+   Example: "You might like the [[PRODUCT:uuid-123:Woven Basket:79.00:https://img.com/a.jpg:basket-set]]."
+3. PRODUCT LINKS: Always refer to products using /products/slug in your text responses.
+4. PERSONALIZED SUPPORT: Use the customer's order history to answer status questions.
+5. FILE SENDING: If a user asks for an invoice or file, tell them they can find it in their order history at /orders/{orderId}/receipt.
+6. HUMAN HANDOFF: If the user is frustrated, angry, or the issue is complex (like payment failure or refund logic), DO NOT transfer immediately. 
+   STEP 0 (FOR GUESTS): If context Name is "Guest", tell them: "I'd the happy to connect you to an agent, but you'll need to log in to your account first so we can securely access your details. Please log in and ask me again!" (Stop handoff flow).
+   STEP 1: Ask "Would you like me to connect you to a human agent who can help with this?".
+   STEP 2: If they say yes, ask "To help our agent assist you faster, could you briefly describe the specific error or issue you're facing?" (DO NOT include the handoff phrase yet).
+   STEP 3: ONLY once they have described the issue, say: "I've logged those details. I'll connect you to our support team right now. please wait agent will take over chat shortly."
+   The system ONLY handsoff when you say the EXACT PHRASE: "I'll connect you to our support team right now." (Crucial: Never say this and ask a question in the same message).`;
+
+    const enhancedMessages = [
+      { role: "system" as const, content: systemPrompt },
+      ...normalizedMessages.filter((message) => message.role !== "system").map((message) => ({
+        role: message.role,
+        content: message.content,
+      })),
+    ];
+
+    let selectedProvider: AIProviderName | undefined = provider;
+    if (!selectedProvider) {
+      selectedProvider = (settings?.aiProvider as AIProviderName) || "gemini";
+    }
+
+    const aiProvider = getAIProvider(selectedProvider);
+    let aiResponse = "";
+    try {
+      aiResponse = await aiProvider.chat(enhancedMessages);
+    } catch (aiError) {
+      console.error("AI provider error:", aiError);
+      aiResponse = "I'm sorry, I'm having trouble connecting right now. Please try again or ask for a human agent.";
+    }
+
+    const handoffConfirmationPhrase = "I'll connect you to our support team right now.";
+    const needsHandoffFromAI = aiResponse.includes(handoffConfirmationPhrase);
+    
+    // Only handoff if user specifically asks, not just because they said "agent" in context
+    const userWantsHandoff = latestUserMessage.toLowerCase().match(/^(connect me to a human|talk to human|agent please|speak with agent)$/i);
+    
+    let finalStatus = (needsHandoffFromAI || userWantsHandoff) ? "human_needed" : "ai_handling";
+
+    // SECURITY: Force login for human agents
+    if (finalStatus === "human_needed" && !userSession) {
+      finalStatus = "ai_handling";
+      aiResponse = "I'd like to connect you to a human agent, but you must be logged in to access priority human support. Please log in or create an account, then ask me again!";
+    }
+
+    if (sessionId) {
+      const fullMessages = [
+        ...normalizedMessages.filter((message) => message.role !== "system"),
+        {
+          role: "assistant" as const,
+          content: aiResponse,
+          timestamp: new Date().toISOString(),
+          isHuman: false,
+        },
+      ];
+
+      await prisma.supportSession.upsert({
+        where: { id: sessionId },
+        update: {
+          messages: JSON.stringify(fullMessages),
+          status: finalStatus,
+          userId: existingSupportSession?.userId || userSession?.userId || null,
+          updatedAt: new Date(),
+        },
+        create: {
+          id: sessionId,
+          userId: userSession?.userId || null,
+          messages: JSON.stringify(fullMessages),
+          status: finalStatus,
+        },
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      provider: aiProvider.name,
+      response: aiResponse,
+      status: finalStatus,
+    });
+  } catch (error) {
+    console.error("AI Chat error:", error);
+    return NextResponse.json({
+      success: true,
+      provider: "fallback",
+      response: "I'm sorry, I'm having trouble processing your request right now. Please try again in a moment.",
+      status: "ai_handling",
+    });
+  }
+}

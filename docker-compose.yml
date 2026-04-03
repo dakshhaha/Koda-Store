@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  koda-store:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: koda-store-webapp
+    container_name: koda_store_app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      # Persist the sqlite database
+      - koda_db:/app/prisma
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+
+volumes:
+  koda_db:
