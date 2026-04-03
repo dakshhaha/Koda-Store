@@ -1,8 +1,10 @@
 # Koda Store 🛍️ - Next-Gen E-commerce Platform
 
-![Koda Store Banner](public/page.png) 
+![Koda Store Banner](https://github.com/dakshhaha/Koda-Store/blob/884553df750a58c775ca5cfdca579087e5ececed/public/images/page.PNG)
 
 **Koda Store** is a modern, high-performance, open-source e-commerce template built with Next.js 16 (App Router), React 19, and SQLite. It features an advanced AI-powered customer support system, multi-currency support, IP-based localization, and a comprehensive admin dashboard.
+
+[![Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/dakshisoffline) [![UPI](https://img.shields.io/badge/UPI-dakshdeepoffx%40fam-4CAF50?style=for-the-badge&logo=google-pay&logoColor=white)](upi://pay?pa=dakshdeepoffx@fam&pn=Developer)
 
 ---
 
