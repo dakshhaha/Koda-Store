@@ -9,7 +9,7 @@ export async function GET() {
 
     const user = await prisma.user.findUnique({
       where: { id: session.userId },
-      select: { passwordChangedAt: true }
+      select: { passwordChangedAt: true, auraCoins: true }
     });
 
     if (user?.passwordChangedAt) {
@@ -24,7 +24,7 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json({ authenticated: true, user: session });
+    return NextResponse.json({ authenticated: true, user: { ...session, auraCoins: user?.auraCoins || 0 } });
   } catch (err: any) {
     console.error("[AUTH_STATUS_ERROR]", err.message, err.stack);
     return NextResponse.json({ error: "Check failed", details: err.message }, { status: 500 });

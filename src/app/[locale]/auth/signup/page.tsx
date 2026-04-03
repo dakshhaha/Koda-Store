@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
-import { User, Mail, Lock, Phone, MapPin, Globe } from "lucide-react";
+import { User, Mail, Lock, Phone, MapPin, Globe, Ticket } from "lucide-react";
 import { COUNTRIES } from "@/lib/countries";
+import { useSearchParams } from "next/navigation";
 
 export default function SignupPage() {
   const [formData, setFormData] = useState({
@@ -16,12 +17,21 @@ export default function SignupPage() {
     city: "",
     zip: "",
     country: "US",
+    referralCode: "",
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const locale = params?.locale || "en-US";
+
+  useEffect(() => {
+    const invite = searchParams.get('invite');
+    if (invite) {
+      setFormData(prev => ({ ...prev, referralCode: invite }));
+    }
+  }, [searchParams]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData(prev => ({ ...prev, [e.target.id]: e.target.value }));
@@ -132,6 +142,14 @@ export default function SignupPage() {
                   <option key={c.code} value={c.code}>{c.name}</option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="referralCode">Referral Invite Code (Optional)</label>
+            <div style={{ position: 'relative' }}>
+              <Ticket size={16} style={{ position: 'absolute', left: '1rem', top: '1rem', color: 'var(--on-surface-variant)' }} />
+              <input id="referralCode" placeholder="Enter invite code" style={{ paddingLeft: '2.75rem', background: 'var(--surface-container-high)' }} value={formData.referralCode} onChange={handleInputChange} />
             </div>
           </div>
 

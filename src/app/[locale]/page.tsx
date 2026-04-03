@@ -104,34 +104,48 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
             <Link href={`/${locale}/categories`} className="btn btn-tertiary">View All &rarr;</Link>
           </div>
           <div className="grid grid-3">
-            {categories.map((cat, i) => (
-              <Link href={`/${locale}/products?category=${cat.slug}`} key={cat.id}>
-                <div className={`cat-card animate-in animate-delay-${(i % 4) + 1}`}>
-                  {cat.image ? (
-                    <img 
-                      src={cat.image} 
-                      alt={cat.name} 
-                      style={{ 
+            {categories.map((cat, i) => {
+              let imgSrc = cat.image;
+              if (!imgSrc) {
+                const firstProduct = allProducts.find(p => p.categoryId === cat.id);
+                if (firstProduct) {
+                  try { imgSrc = JSON.parse(firstProduct.images || "[]")[0]; } catch {}
+                }
+              }
+              // Hardcoded fallback for new categories without products like Decor
+              if (!imgSrc && cat.slug === "decor") {
+                imgSrc = "/images/ceramic_vase_editorial_1775099062134.png";
+              }
+
+              return (
+                <Link href={`/${locale}/products?category=${cat.slug}`} key={cat.id}>
+                  <div className={`cat-card animate-in animate-delay-${(i % 4) + 1}`}>
+                    {imgSrc ? (
+                      <img 
+                        src={imgSrc} 
+                        alt={cat.name} 
+                        style={{ 
+                          position: 'absolute', 
+                          inset: 0, 
+                          width: '100%', 
+                          height: '100%', 
+                          objectFit: 'cover' 
+                        }} 
+                      />
+                    ) : (
+                      <div style={{ 
                         position: 'absolute', 
                         inset: 0, 
-                        width: '100%', 
-                        height: '100%', 
-                        objectFit: 'cover' 
-                      }} 
-                    />
-                  ) : (
-                    <div style={{ 
-                      position: 'absolute', 
-                      inset: 0, 
-                      background: `linear-gradient(${135 + i * 20}deg, var(--surface-container), var(--surface-container-high))` 
-                    }}></div>
-                  )}
-                  <div className="cat-card-overlay">
-                    <h3>{cat.name}</h3>
+                        background: `linear-gradient(${135 + i * 20}deg, var(--surface-container), var(--surface-container-high))` 
+                      }}></div>
+                    )}
+                    <div className="cat-card-overlay">
+                      <h3>{cat.name}</h3>
+                    </div>
                   </div>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              );
+            })}
           </div>
         </div>
       </section>

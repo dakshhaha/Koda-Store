@@ -12,7 +12,8 @@ export async function POST(request: Request) {
       address, 
       city, 
       zip, 
-      country 
+      country,
+      referralCode,
     } = await request.json();
 
     if (!email || !password || !name) {
@@ -31,21 +32,67 @@ export async function POST(request: Request) {
     // Secure encryption
     const passwordHash = await bcrypt.hash(password, 12);
 
-    // Initial Curator Persistence
-    const user = await prisma.user.create({
-      data: {
-        email,
-        passwordHash,
-        name,
-        phone,
-        address,
-        city,
-        zip,
-        country,
-        role: "customer",
-        locale: "en-US", // Default to initial signup locale
-        currency: country === "IN" ? "INR" : country === "GB" ? "GBP" : "USD",
-      },
+    // Find referrer by matching the code against user.id substrings
+    let referrerId: string | null = null;
+    if (referralCode && typeof referralCode === "string") {
+      const normalizedCode = referralCode.trim().toUpperCase();
+      // Only query users whose ID starts with the referral code pattern
+      const matchingUsers = await prisma.user.findMany({
+        select: { id: true },
+        where: {
+          id: {
+            startsWith: normalizedCode.toLowerCase(),
+          },
+        },
+      });
+      const matchingUser = matchingUsers.find(
+        (u) => u.id.substring(0, 8).toUpperCase() === normalizedCode
+      );
+      if (matchingUser) {
+        referrerId = matchingUser.id;
+        console.log("Referral matched:", { referrerId, code: normalizedCode });
+      } else {
+        console.log("Referral code not matched:", { code: normalizedCode, found: matchingUsers.length });
+      }
+    }
+
+    // Create user in a transaction if there's a referral
+    const user = await prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          email,
+          passwordHash,
+          name,
+          phone,
+          address,
+          city,
+          zip,
+          country,
+          role: "customer",
+          locale: "en-US",
+          currency: country === "IN" ? "INR" : country === "GB" ? "GBP" : "USD",
+        },
+      });
+
+      // Record referral and award 100 Aura coins to referrer on registration
+      if (referrerId && referrerId !== created.id) {
+        await tx.referral.create({
+          data: {
+            referrerId,
+            referredId: created.id,
+            status: "registered",
+            rewardAwarded: false,
+          },
+        });
+
+        // Award 100 Aura coins immediately on registration
+        await tx.user.update({
+          where: { id: referrerId },
+          data: { auraCoins: { increment: 100 } },
+        });
+      }
+
+      return created;
     });
 
     return NextResponse.json({ 

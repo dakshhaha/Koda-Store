@@ -59,11 +59,11 @@ export default async function ProductDetailPage({
         <Link href={`/${locale}`}>Home</Link> / <Link href={`/${locale}/products`}>Products</Link> / <span style={{ color: 'var(--on-surface)' }}>{product.name}</span>
       </nav>
 
-      <div className="grid-2 product-detail-layout" style={{ gap: '2.5rem', alignItems: 'start' }}>
+      <div className="product-detail-layout" style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1fr) 1.5fr', gap: '4rem', alignItems: 'start' }}>
         {/* Gallery */}
         <div className="animate-in">
           <div className="detail-image-wrap" style={{ 
-            aspectRatio: '4/5', background: 'var(--surface-container)', 
+            aspectRatio: '1/1', background: 'var(--surface-container)', 
             borderRadius: 'var(--radius-xl)', overflow: 'hidden',
             boxShadow: 'var(--shadow-lg)'
           }}>
@@ -93,7 +93,26 @@ export default async function ProductDetailPage({
 
           <div style={{ padding: '1.5rem 0', borderTop: '1px solid var(--outline-variant)', borderBottom: '1px solid var(--outline-variant)', marginBottom: '2rem' }}>
             <h3 style={{ fontSize: '0.7rem', textTransform: 'uppercase', marginBottom: '0.75rem', letterSpacing: '0.1em', color: 'var(--on-surface-variant)' }}>Product Overview</h3>
-            <p style={{ color: 'var(--on-surface)', fontSize: '1rem', lineHeight: '1.7' }}>{product.description}</p>
+            <p style={{ color: 'var(--on-surface)', fontSize: '1rem', lineHeight: '1.7', marginBottom: '1.5rem' }}>{product.description}</p>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '0.875rem' }}>
+              <div>
+                <h4 style={{ fontWeight: 600, color: 'var(--on-surface)', marginBottom: '0.25rem' }}>Category</h4>
+                <p style={{ color: 'var(--on-surface-variant)', textTransform: 'capitalize' }}>{product.category?.name || "Uncategorized"}</p>
+              </div>
+              <div>
+                <h4 style={{ fontWeight: 600, color: 'var(--on-surface)', marginBottom: '0.25rem' }}>Availability</h4>
+                <p style={{ color: 'var(--on-surface-variant)' }}>{product.stock > 0 ? `In Stock (${product.stock} units)` : "Out of Stock"}</p>
+              </div>
+              <div>
+                <h4 style={{ fontWeight: 600, color: 'var(--on-surface)', marginBottom: '0.25rem' }}>Shipping</h4>
+                <p style={{ color: 'var(--on-surface-variant)' }}>Ships globally in 24 hours</p>
+              </div>
+              <div>
+                <h4 style={{ fontWeight: 600, color: 'var(--on-surface)', marginBottom: '0.25rem' }}>Guarantee</h4>
+                <p style={{ color: 'var(--on-surface-variant)' }}>1-Year Limited Warranty</p>
+              </div>
+            </div>
           </div>
 
           <BuyButton product={product} locale={locale} />

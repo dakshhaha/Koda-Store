@@ -17,7 +17,7 @@ export default async function OrderTrackingPage({
   const session = await getSession();
   if (!session) return redirect(`/${locale}/auth/login`);
 
-  const order = await prisma.order.findUnique({
+  const order = await prisma.order.findFirst({
     where: { id, userId: session.userId },
     include: { items: { include: { product: true } } }
   });

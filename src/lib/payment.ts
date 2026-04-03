@@ -125,32 +125,65 @@ class RazorpayGateway implements PaymentGateway {
 
   async createPayment(options: CreatePaymentOptions): Promise<PaymentIntent> {
     const Razorpay = (await import("razorpay")).default;
-    const keyId = requireEnv("RAZORPAY_KEY_ID");
-    const keySecret = requireEnv("RAZORPAY_KEY_SECRET");
+    const keyId = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    
+    if (!keyId || !keySecret) {
+      throw new Error("Razorpay credentials are not configured properly.");
+    }
+    
     const instance = new Razorpay({ key_id: keyId, key_secret: keySecret });
 
-    const order = await instance.orders.create({
-      amount: toMinorUnits(options.amount),
-      currency: options.currency.toUpperCase(),
-      receipt: options.metadata?.orderId || `order_${Date.now()}`,
-      notes: options.metadata || {},
-    });
+    try {
+      const order = await instance.orders.create({
+        amount: toMinorUnits(options.amount),
+        currency: options.currency.toUpperCase(),
+        receipt: options.metadata?.orderId || `order_${Date.now()}`,
+        notes: options.metadata || {},
+      });
 
-    return {
-      id: order.id,
-      amount: options.amount,
-      currency: options.currency,
-      status: order.status || "created",
-      publicKey: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || keyId,
-      gateway: "razorpay",
-    };
+      if (!order || !order.id) {
+        throw new Error("Razorpay returned an invalid order response.");
+      }
+
+      return {
+        id: order.id,
+        amount: options.amount,
+        currency: options.currency,
+        status: order.status || "created",
+        publicKey: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || keyId,
+        gateway: "razorpay",
+      };
+    } catch (err) {
+      console.error("Razorpay order creation error:", JSON.stringify(err, null, 2));
+      if (err instanceof Error) {
+        throw new Error(`Razorpay order creation failed: ${err.message}`);
+      }
+      if (typeof err === "object" && err !== null) {
+        const razorpayErr = err as Record<string, unknown>;
+        const msg = typeof razorpayErr.description === "string"
+          ? razorpayErr.description
+          : typeof razorpayErr.message === "string"
+            ? razorpayErr.message
+            : JSON.stringify(razorpayErr);
+        throw new Error(`Razorpay order creation failed: ${msg}`);
+      }
+      throw new Error(`Razorpay order creation failed: ${String(err)}`);
+    }
   }
 
   async verifyPayment(paymentId: string) {
     const Razorpay = (await import("razorpay")).default;
+    const keyId = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    
+    if (!keyId || !keySecret) {
+      throw new Error("Razorpay credentials are not configured properly.");
+    }
+
     const instance = new Razorpay({
-      key_id: requireEnv("RAZORPAY_KEY_ID"),
-      key_secret: requireEnv("RAZORPAY_KEY_SECRET"),
+      key_id: keyId,
+      key_secret: keySecret,
     });
 
     const payment = await instance.payments.fetch(paymentId);

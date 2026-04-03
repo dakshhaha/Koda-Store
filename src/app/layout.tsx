@@ -22,6 +22,20 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const session = await getSession();
+  let extendedSession = null;
+
+  if (session?.userId) {
+    try {
+      // @ts-ignore
+      const user = await prisma.user.findUnique({
+        where: { id: session.userId },
+        // @ts-ignore
+        select: { auraCoins: true },
+      });
+      // @ts-ignore
+      extendedSession = { ...session, auraCoins: user?.auraCoins || 0 };
+    } catch {}
+  }
   const head = await headers();
   const locale = head.get("x-detected-locale") || "en-US";
   const currency = head.get("x-detected-currency") || "USD";
@@ -87,7 +101,7 @@ export default async function RootLayout({
                  <SearchBar />
               </div>
 
-              <NavActions session={session} locale={locale} currency={currency} />
+              <NavActions session={extendedSession as any} locale={locale} currency={currency} />
 
               <button className="mobile-menu-btn" id="mobile-menu-toggle" aria-label="Toggle menu">
                 <span></span><span></span><span></span>

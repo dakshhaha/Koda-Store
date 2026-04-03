@@ -2,7 +2,7 @@
 
 ![Koda Store Banner](https://github.com/dakshhaha/Koda-Store/blob/884553df750a58c775ca5cfdca579087e5ececed/public/images/page.PNG)
 
-**Koda Store** is a modern, high-performance, open-source e-commerce template built with Next.js 16 (App Router), React 19, and SQLite. It features an advanced AI-powered customer support system, multi-currency support, IP-based localization, and a comprehensive admin dashboard.
+**Koda Store** is a premium, high-performance e-commerce ecosystem built with Next.js 15 (App Router), React 19, and PostgreSQL. It features an advanced AI-powered customer support system, a dual-stage referral economy, and a "Curated Light" editorial design system.
 
 🌍 **Live Demo:** [koda-store.vercel.app](https://koda-store.vercel.app/)
 
@@ -12,12 +12,39 @@
 
 ## 🌟 Key Features
 
-* **⚡ Modern Tech Stack**: Next.js 16, React 19, Tailwind CSS v4, and TypeScript.
-* **🤖 AI Support Agents**: Built-in intelligent customer support bot capable of handling initial queries before escalating to human agents. Fallback mechanism supports Gemini, OpenRouter, and Claude.
-* **🌍 Global Ready**: Automatic IP-based localization and currency conversion.
-* **💳 Multi-Gateway Payments**: Ready-to-go integrations for Stripe, PayPal, and Razorpay.
-* **🛠️ Admin Dashboard**: Full control over products, orders, users, announcements, coupons, and support tickets.
-* **🗄️ Scalable Database**: Fully integrated with PostgreSQL via Prisma 7 edge adapters, ready for serverless deployments on platforms like Vercel and Supabase.
+* **⚡ Cutting-Edge Stack**: Next.js 15, React 19, Tailwind CSS v4, and Prisma 6/7.
+* **🤖 AI Support Ecosystem**: Specialized customer support bot with product embedding, order tracking, and seamless human agent escalation.
+* **💰 Aura Rewards & Referrals**: A sophisticated growth engine with dual-stage rewards (Signup + Delivery).
+* **🌍 Global Optimization**: Automatic IP-based localization, real-time currency conversion, and regional pricing.
+* **💳 Unified Payment Gateway**: Robust support for Stripe, Razorpay, and COD, including seamless COD-to-Online payment conversion.
+* **🛠️ Enterprise Admin Suite**: Comprehensive control over inventory, orders, user roles, support sessions, and site configuration.
+
+---
+
+## 💎 Core Modules
+
+### 🪙 Aura Rewards System
+The store features a proprietary virtual currency, **Aura Coins**, integrated into every interaction:
+- **Dual-Stage Referral**: Referrers earn **100 Aura** instantly on friend signup and **400 Aura** once the friend's first order is delivered.
+- **Spending**: Aura can be used in the dedicated Rewards Store for discounts or exclusive items.
+- **Dynamic Tracking**: Real-time balance updates in the navigation profile and rewards dashboard.
+
+### 🧠 AI Customer Support
+More than a chatbot, the Koda AI is a full-service assistant:
+- **Product Context**: Links products directly in chat cards with rich UI embeds.
+- **Order Awareness**: Authenticated users can ask about their specific order status.
+- **Escalation Logic**: Automatically detects complex queries and initializes a human support session in the Admin Portal.
+- **Model Agnostic**: Integrated fallback for Gemini, OpenRouter, and Claude.
+
+### 💳 Advanced Payment Infrastructure
+- **COD Upgrades**: Unique "Pay Online" feature allows customers who chose COD to upgrade to online payment at any time before delivery.
+- **Regional Resilience**: Smart gateway selection picks the best provider (Stripe/Razorpay) based on the user's currency and region.
+- **Sanitized Flow**: Comprehensive verification for Razorpay signatures and Stripe webhooks.
+
+### 🎨 Design System: "Curated Light"
+- **Editorial Aesthetic**: A high-end, light-themed editorial brand identity using Burnt Ochre and Amber accents.
+- **Responsive Fluidity**: Optimized for mobile-first editorial browsing with smooth micro-animations.
+- **Glassmorphism**: Subtle structural elements in chat and navigation for a premium feel.
 
 ---
 
@@ -28,74 +55,48 @@
 * npm, yarn, pnpm, or bun
 
 ### 1. Clone & Install
-*(Once you push this to GitHub, users can clone it like this:)*
 ```bash
 git clone https://github.com/dakshhaha/Koda-Store
-cd koda-store
+cd Koda-Store
 npm install
 ```
 
 ### 2. Environment Variables
-Copy the example environment file and fill in your keys:
+Copy the example environment file and fill in your keys (including Gemini API and Database credentials):
 ```bash
 cp .env.example .env
 ```
 
 ### 3. Database Setup
-Ensure your Supabase/PostgreSQL connection string is correctly set in `.env` as `DATABASE_URL`. Then build the schema:
 ```bash
 npx prisma generate
 npx prisma db push
 ```
-*(Optional)* Seed the database with initial categories:
+*(Optional)* Seed the database:
 ```bash
-# Example if you have a configured runner for scripts:
-npx tsx scripts/seed-categories.ts
+npx tsx prisma/seed.ts
 ```
 
 ### 4. Run Development Server
 ```bash
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000) in your browser.
-
----
-
-## 🐳 Docker Deployment
-
-Koda Store includes a `Dockerfile` and `docker-compose.yml` for effortless self-hosting.
-
-```bash
-# Build and start the container in detached mode
-docker-compose up -d --build
-```
-Your app will be available on port 3000. Production database is stored in the Docker volume.
-
----
-
-## 🐘 Vercel & Edge Deployment
-Koda Store is configured natively for serverless environments using Prisma 7 and the `@prisma/adapter-pg` driver.
-
-Unlike SQLite, which loses data on serverless lambdas, this configuration routes all interactions directly to your remote Postgres database (like Supabase), ensuring safe data architecture and high performance.
+Open [http://localhost:3000](http://localhost:3000).
 
 ---
 
 ## 🤝 Contributing
-
-Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests to us.
+Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) for details on our code of conduct and pull request process.
 
 ---
 
 ## 💖 Support the Project
-
-If you found this template helpful and want to support the development of **Koda Store**, consider making a donation! Your support helps keep this project alive and continuously updated.
+If you found this template helpful, consider supporting the development!
 
 [![Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/dakshisoffline)
-
 [![UPI](https://img.shields.io/badge/UPI-dakshdeepoffx%40fam-4CAF50?style=for-the-badge&logo=google-pay&logoColor=white)](upi://pay?pa=dakshdeepoffx@fam&pn=Developer)
 
 ---
 
 ## 📄 License
-
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

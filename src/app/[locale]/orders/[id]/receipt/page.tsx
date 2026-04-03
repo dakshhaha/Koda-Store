@@ -2,11 +2,12 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { Download, Printer, ArrowLeft, CheckCircle } from "lucide-react";
-import QRCode from "qrcode";
+import { Download, Printer, ArrowLeft, CheckCircle, X, Sparkles, Coins, Share2 } from "lucide-react";
 import Link from "next/link";
+import QRCode from "qrcode";
 import { useCart } from "@/context/CartContext";
 import PayOnlineButton from "@/components/PayOnlineButton";
+import { useRouter } from "next/navigation";
 import { formatCurrency, normalizeCurrency } from "@/lib/currency";
 
 // Simple Code128 barcode generator (subset B)
@@ -116,13 +117,71 @@ interface ReceiptOrder {
 export default function ReceiptPage() {
   const { id, locale } = useParams() as { id: string; locale: string };
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [order, setOrder] = useState<ReceiptOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [verifyingPayment, setVerifyingPayment] = useState(false);
+  const [scratched, setScratched] = useState(false);
+  const [auraWon, setAuraWon] = useState(0);
   const receiptRef = useRef<HTMLDivElement>(null);
+  const [showScratchModal, setShowScratchModal] = useState(false);
+  const [scratchProcess, setScratchProcess] = useState<"hidden" | "scratching" | "revealed">("hidden");
+  const [isWin, setIsWin] = useState(true);
+
+  // Derive isPaid status based on order (it may be null initially, but that's okay for effects safely checked)
+  const isPaid = order ? ["paid", "delivered", "shipped"].includes(String(order.status || "").toLowerCase()) : false;
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && isPaid) {
+      if (!localStorage.getItem(`scratched_${id}`)) {
+         // Show modal only if they never scratched it for this paid order
+         setTimeout(() => setShowScratchModal(true), 1500);
+      } else {
+        setScratched(true);
+        setAuraWon(Number(localStorage.getItem(`aura_${id}`) || 0));
+      }
+    }
+  }, [id, isPaid]);
+
+  const handleScratch = async () => {
+    if (scratched || scratchProcess !== "hidden") return;
+    setScratchProcess("scratching");
+    
+    // 80% win rate
+    const won = Math.random() < 0.8;
+    setIsWin(won);
+    const randomAura = won ? Math.floor(Math.random() * 21) + 5 : 0;
+    
+    // Artificial scratch delay for animation
+    setTimeout(async () => {
+      setAuraWon(randomAura);
+      setScratched(true);
+      setScratchProcess("revealed");
+      localStorage.setItem(`scratched_${id}`, "true");
+      localStorage.setItem(`aura_${id}`, String(randomAura));
+
+      if (randomAura > 0) {
+        try {
+          await fetch('/api/rewards/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount: randomAura })
+          });
+          router.refresh(); // Refresh NextJS tree to update the auraCoins in NavActions dropdown
+        } catch {}
+      }
+    }, 1500);
+  };
+
+  const closeScratchModal = () => setShowScratchModal(false);
   const verificationAttemptedRef = useRef(false);
   const { clearCart } = useCart();
+  const clearCartRef = useRef(clearCart);
+
+  useEffect(() => {
+    clearCartRef.current = clearCart;
+  }, [clearCart]);
 
   useEffect(() => {
     fetch(`/api/orders/${id}`)
@@ -166,23 +225,46 @@ export default function ReceiptPage() {
 
         const result = await response.json();
         if (response.ok && result.verified) {
-          clearCart();
+          clearCartRef.current();
           setOrder((prev) => (prev ? { ...prev, status: "paid", paymentId } : prev));
+        } else {
+          console.warn("Verification returned non-verified:", result);
         }
-      } catch {
+      } catch (err) {
+        console.error("Verification error:", err);
       } finally {
         setVerifyingPayment(false);
       }
     };
 
     verifyIfNeeded();
-  }, [order, searchParams, clearCart]);
+  }, [order, searchParams]);
+
+  // Poll for order status updates if still pending
+  useEffect(() => {
+    if (!order || order.status === "paid" || order.status === "delivered" || order.status === "shipped") return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/orders/${id}`, { cache: "no-store" });
+        const data = await res.json();
+        if (data.status !== order.status) {
+          setOrder(data);
+          if (["paid", "delivered", "shipped"].includes(data.status)) {
+            clearInterval(interval);
+          }
+        }
+      } catch {}
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [order?.status, id]);
 
   useEffect(() => {
     if (order?.status === "paid") {
-      clearCart();
+      clearCartRef.current();
     }
-  }, [order?.status, clearCart]);
+  }, [order?.status]);
 
   const handlePrint = () => window.print();
 
@@ -323,7 +405,6 @@ export default function ReceiptPage() {
   if (!order) return <div className="container section empty-state"><h2>Order not found.</h2><Link href={`/${locale}/orders`}>Go to My Orders</Link></div>;
 
   const orderId = order.id.substring(0, 12).toUpperCase();
-  const isPaid = ["paid", "delivered", "shipped"].includes(String(order.status || "").toLowerCase());
   const canPayOnline = ["pending", "failed", "cancelled"].includes(String(order.status || "").toLowerCase());
   const isCodOrder = String(order.paymentGateway || "").toLowerCase() === "cod";
   const orderCurrency = normalizeCurrency(order.currency || "USD");
@@ -376,6 +457,8 @@ export default function ReceiptPage() {
             {isPaid ? "Thank you for your order!" : "Your payment is still being confirmed with the gateway."}
           </p>
         </div>
+
+        {/* Inline block removed in favor of Modal */}
 
         {/* Store Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', paddingBottom: '1.5rem', borderBottom: '2px solid #000' }}>
@@ -461,6 +544,112 @@ export default function ReceiptPage() {
           </p>
         </div>
       </div>
+      {/* Scratch Modal Overlay */}
+      {showScratchModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', padding: '1rem' }} onClick={closeScratchModal}>
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{ 
+              background: 'linear-gradient(180deg, #111, #0a0a0a)', 
+              borderRadius: '24px', 
+              width: '100%', 
+              maxWidth: '400px', 
+              border: '1px solid rgba(255,255,255,0.1)', 
+              boxShadow: '0 30px 60px rgba(0,0,0,0.5)',
+              position: 'relative',
+              overflow: 'hidden',
+              transform: 'scale(1)',
+              animation: 'fadeInUp 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ position: 'absolute', top: '1rem', right: '1rem', zIndex: 10 }}>
+              <button onClick={closeScratchModal} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{ padding: '2.5rem 2rem 2rem', textAlign: 'center' }}>
+              <h2 style={{ fontSize: '1.75rem', fontWeight: 900, color: '#fff', marginBottom: '0.5rem' }}>Mystery Reward 🎁</h2>
+              <p style={{ color: '#a1a1aa', fontSize: '0.9rem', marginBottom: '2rem' }}>Every purchase gives you a chance to win exclusive Aura.</p>
+
+              {/* The Scratch Card */}
+              <div 
+                style={{
+                  position: 'relative', width: '100%', height: '180px', borderRadius: '16px', overflow: 'hidden', 
+                  cursor: scratchProcess === 'hidden' ? 'pointer' : 'default',
+                  background: 'linear-gradient(135deg, #1e1b4b, #3730a3)',
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.3)', marginBottom: '2rem'
+                }}
+                onClick={handleScratch}
+              >
+                {/* Result Block */}
+                {scratchProcess === 'revealed' && (
+                  <div style={{ color: '#fff', textAlign: 'center', padding: '1rem', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', animation: 'fadeInUp 0.6s ease-out' }}>
+                    {isWin ? (
+                      <>
+                        <div style={{ background: 'rgba(255,255,255,0.2)', padding: '0.75rem', borderRadius: '50%', marginBottom: '0.5rem', animation: 'pulse 2s infinite' }}>
+                          <Coins size={36} color="#facc15" />
+                        </div>
+                        <h4 style={{ fontSize: '2rem', fontWeight: 900, color: '#facc15', marginBottom: '0.25rem', textShadow: '0 0 20px rgba(250,204,21,0.5)' }}>{auraWon} Aura</h4>
+                        <p style={{ fontSize: '0.8rem', opacity: 0.9 }}>Added to Wallet! 🎉</p>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ padding: '0.75rem', borderRadius: '50%', marginBottom: '0.5rem' }}>
+                          <span style={{ fontSize: '2rem' }}>😢</span>
+                        </div>
+                        <h4 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#fff', marginBottom: '0.25rem' }}>Better luck next time</h4>
+                        <p style={{ fontSize: '0.8rem', opacity: 0.7 }}>No Aura awarded this time.</p>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Scratching Animation Layer */}
+                {scratchProcess === 'scratching' && (
+                  <div style={{ position: 'absolute', inset: 0, zIndex: 2, background: 'silver', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeOut 0.5s ease 1s forwards' }}>
+                    <div style={{ 
+                      width: '100%', height: '100%', 
+                      backgroundImage: 'linear-gradient(45deg, transparent 40%, rgba(255,255,255,0.8) 50%, transparent 60%)', 
+                      backgroundSize: '200% 200%', 
+                      animation: 'shimmer 1.5s infinite linear' 
+                    }} />
+                  </div>
+                )}
+
+                {/* Unscratched Foil Layer */}
+                {scratchProcess === 'hidden' && (
+                  <div style={{ position: 'absolute', inset: 0, zIndex: 1, background: 'linear-gradient(135deg, #d4d4d8 0%, #f4f4f5 50%, #d4d4d8 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ 
+                      position: 'absolute', inset: 0, opacity: 0.4, mixBlendMode: 'overlay',
+                      backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, #a1a1aa 10px, #a1a1aa 20px)'
+                    }} />
+                    <div style={{ position: 'absolute', width: '80%', height: '80%', background: 'radial-gradient(ellipse, rgba(255,255,255,0.6) 0%, transparent 70%)', mixBlendMode: 'overlay' }}></div>
+                    <strong style={{ fontSize: '1.25rem', color: '#52525b', zIndex: 2, display: 'flex', alignItems: 'center', gap: '0.5rem', textShadow: '0 1px 0 #fff' }}>
+                      <Sparkles color="#71717a" /> TAP TO SCRATCH <Sparkles color="#71717a" />
+                    </strong>
+                  </div>
+                )}
+              </div>
+
+              {/* Refer & Earn CTA */}
+              <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '16px', padding: '1.5rem', border: '1px dashed rgba(255,255,255,0.2)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', color: '#f59e0b', marginBottom: '0.5rem' }}>
+                  <Share2 size={20} /> <span style={{ fontWeight: 800, fontSize: '1.1rem' }}>Refer & Earn 500 Aura</span>
+                </div>
+                <p style={{ color: '#a1a1aa', fontSize: '0.8rem', marginBottom: '1rem', lineHeight: 1.5 }}>
+                  Want more Aura? Invite a friend! Get 100 Aura on signup + 400 more after their first delivery.
+                </p>
+                <Link href={`/${locale}/referrals`} className="btn" style={{ background: '#f59e0b', color: '#000', width: '100%', borderRadius: '12px', fontWeight: 800 }}>
+                  Get Invite Link
+                </Link>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

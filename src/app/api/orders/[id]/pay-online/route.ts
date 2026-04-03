@@ -28,11 +28,20 @@ function pickOnlineGateway(
   preferred: PaymentGatewayName | undefined,
   hiddenGateways: string[]
 ): PaymentGatewayName | null {
-  const supportedCheckoutGateways: PaymentGatewayName[] = ["stripe", "razorpay", "paypal", "flutterwave"];
-  const visibleOnlineGateways = SUPPORTED_GATEWAYS.filter(
+  const onlineGateways: PaymentGatewayName[] = ["stripe", "razorpay"];
+  
+  // Filter for supported and not hidden
+  let visibleOnlineGateways = onlineGateways.filter(
     (gateway): gateway is PaymentGatewayName =>
-      supportedCheckoutGateways.includes(gateway) && !hiddenGateways.includes(gateway)
+      SUPPORTED_GATEWAYS.includes(gateway) && !hiddenGateways.includes(gateway)
   );
+
+  // If everything is hidden, but we are in this route, we MUST provide an online gateway
+  // so we fallback to all supported online gateways
+  if (visibleOnlineGateways.length === 0) {
+    visibleOnlineGateways = onlineGateways.filter(g => SUPPORTED_GATEWAYS.includes(g));
+  }
+  
   if (visibleOnlineGateways.length === 0) return null;
 
   if (requested && requested !== "cod" && visibleOnlineGateways.includes(requested)) {
@@ -77,7 +86,9 @@ export async function POST(
       return NextResponse.json({ error: "This order is already paid." }, { status: 400 });
     }
 
-    const canInitializePayment = ["pending", "failed", "cancelled"].includes(normalizedStatus);
+    // Allow COD orders (paymentGateway === 'cod') and any pending/failed/cancelled order to switch to online payment
+    const isCodOrder = String((order as any).paymentGateway || "").toLowerCase() === "cod";
+    const canInitializePayment = isCodOrder || ["pending", "failed", "cancelled"].includes(normalizedStatus);
     if (!canInitializePayment) {
       return NextResponse.json({ error: "Online payment is not available for this order state." }, { status: 400 });
     }
@@ -85,6 +96,8 @@ export async function POST(
     const settings = await prisma.siteSettings.findUnique({ where: { id: "global" } });
     const hiddenGateways = parseHiddenGateways((settings as { hiddenGateways?: string | null } | null)?.hiddenGateways);
     const preferredGateway = settings?.paymentGateway as PaymentGatewayName | undefined;
+    
+    // Pass hidden gateways, but pickOnlineGateway now has fallback logic
     const gatewayName = pickOnlineGateway(requestedGateway, preferredGateway, hiddenGateways);
 
     if (!gatewayName) {
@@ -96,11 +109,38 @@ export async function POST(
       return NextResponse.json({ error: "Order total is invalid for online payment." }, { status: 400 });
     }
 
-    const normalizedCurrency = normalizeCurrency(
+    let normalizedCurrency = normalizeCurrency(
       typeof body.currency === "string" && body.currency
         ? body.currency
-        : order.currency || settings?.currency || "USD"
+        : order.currency || "USD"
     );
+
+    // Razorpay is most stable with INR for typical Indian merchant accounts.
+    if (gatewayName === "razorpay" && normalizedCurrency !== "INR") {
+      normalizedCurrency = "INR";
+    }
+
+    // Recalculate amount if currency changed
+    let finalAmount = amount;
+    if (normalizedCurrency !== order.currency) {
+      const from = order.currency || "USD";
+      const { convertCurrency } = await import("@/lib/currency");
+      finalAmount = convertCurrency(amount, from, normalizedCurrency);
+    }
+
+    // Razorpay max order amount is ₹500,000 (50,000,000 paise)
+    if (gatewayName === "razorpay") {
+      const amountInPaise = Math.round(finalAmount * 100);
+      const maxPaise = 50000000;
+      if (amountInPaise > maxPaise) {
+        return NextResponse.json({
+          error: `Order amount (${finalAmount} ${normalizedCurrency}) exceeds Razorpay's maximum allowed amount. Please contact support for large orders.`
+        }, { status: 400 });
+      }
+      if (amountInPaise <= 0) {
+        return NextResponse.json({ error: "Order amount must be greater than zero." }, { status: 400 });
+      }
+    }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
     const returnUrl = `${appUrl}/${locale}/orders/${order.id}/receipt`;
@@ -108,40 +148,69 @@ export async function POST(
 
     const paymentGateway = getPaymentGateway(gatewayName);
     const payment = await paymentGateway.createPayment({
-      amount,
+      amount: finalAmount,
       currency: normalizedCurrency,
       returnUrl,
       cancelUrl,
       metadata: {
         orderId: order.id,
         orderLabel: `Order ${order.id.slice(0, 8).toUpperCase()}`,
-        customerEmail: session.email,
-        customerName: session.name,
+        customerEmail: session.email || "guest@kodastore.com",
+        customerName: session.name || "Customer",
       },
     });
 
+    const updatedData: any = {
+      paymentGateway: gatewayName,
+      currency: normalizedCurrency,
+      paymentId: payment.id,
+      status: isPaidStatus(payment.status) ? "paid" : "pending",
+    };
+
+    // If the currency changed, we MUST convert the numeric values in the database
+    // to avoid "Total: 83.2 USD" when it was originally "83.2 INR" (1 USD)
+    if (normalizedCurrency !== order.currency) {
+      const from = order.currency || "USD";
+      const { convertCurrency } = await import("@/lib/currency");
+      updatedData.subtotal = convertCurrency(Number(order.subtotal || 0), from, normalizedCurrency);
+      updatedData.discountAmount = convertCurrency(Number(order.discountAmount || 0), from, normalizedCurrency);
+      updatedData.total = convertCurrency(Number(order.total || 0), from, normalizedCurrency);
+      
+      // Update individual order item prices too
+      const items = await prisma.orderItem.findMany({ where: { orderId: order.id } });
+      for (const item of items) {
+        await prisma.orderItem.update({
+          where: { id: item.id },
+          data: {
+            price: convertCurrency(Number(item.price || 0), from, normalizedCurrency)
+          }
+        });
+      }
+    }
+
     await prisma.order.update({
       where: { id: order.id },
-      data: {
-        paymentGateway: gatewayName,
-        currency: normalizedCurrency,
-        paymentId: payment.id,
-        status: isPaidStatus(payment.status) ? "paid" : "pending",
-      },
+      data: updatedData,
     });
 
     return NextResponse.json({
       success: true,
       orderId: order.id,
       gateway: gatewayName,
-      amount,
+      amount: finalAmount,
       currency: normalizedCurrency,
-      payment,
+      payment: {
+        ...payment,
+        amount: finalAmount,
+      },
     });
   } catch (error) {
-    console.error("Pay-online initialization failed:", error);
+    const errorDetails = error instanceof Error
+      ? { message: error.message, stack: error.stack }
+      : { message: String(error) };
+    console.error("Pay-online initialization failed:", JSON.stringify(errorDetails, null, 2));
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unable to initialize online payment." },
+      { error: errorDetails.message || "Unable to initialize online payment." },
       { status: 500 }
     );
   }

@@ -39,7 +39,7 @@ export default async function OrdersPage({
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
            {activeOrders.map((order, i) => {
               const normalizedStatus = order.status.toLowerCase();
-              const canPayOnline = ["pending", "failed"].includes(normalizedStatus);
+               const canPayOnline = ["pending", "failed", "cancelled"].includes(normalizedStatus);
               const isCodOrder = order.paymentGateway === "cod";
               const orderCurrency = normalizeCurrency(order.currency);
               const statusColor = order.status === 'delivered' ? '#16a34a' : order.status === 'shipped' ? '#2563eb' : '#d97706';

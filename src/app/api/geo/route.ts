@@ -36,6 +36,50 @@ function fallbackGeo() {
   };
 }
 
+const INDIAN_STATES: Record<string, string> = {
+  AP: "Andhra Pradesh",
+  AR: "Arunachal Pradesh",
+  AS: "Assam",
+  BR: "Bihar",
+  CG: "Chhattisgarh",
+  GA: "Goa",
+  GJ: "Gujarat",
+  HR: "Haryana",
+  HP: "Himachal Pradesh",
+  JH: "Jharkhand",
+  KA: "Karnataka",
+  KL: "Kerala",
+  MP: "Madhya Pradesh",
+  MH: "Maharashtra",
+  MN: "Manipur",
+  ML: "Meghalaya",
+  MZ: "Mizoram",
+  NL: "Nagaland",
+  OD: "Odisha",
+  PB: "Punjab",
+  RJ: "Rajasthan",
+  SK: "Sikkim",
+  TN: "Tamil Nadu",
+  TG: "Telangana",
+  TR: "Tripura",
+  UP: "Uttar Pradesh",
+  UK: "Uttarakhand",
+  WB: "West Bengal",
+  AN: "Andaman and Nicobar Islands",
+  CH: "Chandigarh",
+  DN: "Dadra and Nagar Haveli and Daman and Diu",
+  DL: "Delhi",
+  JK: "Jammu and Kashmir",
+  LA: "Ladakh",
+  LD: "Lakshadweep",
+  PY: "Puducherry"
+};
+
+function safeDecode(str: string | null) {
+  if (!str) return "";
+  try { return decodeURIComponent(str); } catch { return str; }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const headerCountry =
@@ -45,12 +89,16 @@ export async function GET(request: NextRequest) {
       "";
 
     if (headerCountry) {
+      let region = safeDecode(request.headers.get("x-vercel-ip-country-region"));
+      if (headerCountry === "IN" && INDIAN_STATES[region]) {
+        region = INDIAN_STATES[region];
+      }
       return NextResponse.json({
-        country: request.headers.get("x-vercel-ip-country-name") || "",
+        country: safeDecode(request.headers.get("x-vercel-ip-country-name")) || "",
         countryCode: headerCountry,
-        city: request.headers.get("x-vercel-ip-city") || "",
-        region: request.headers.get("x-vercel-ip-country-region") || "",
-        zip: request.headers.get("x-vercel-ip-postal-code") || "",
+        city: safeDecode(request.headers.get("x-vercel-ip-city")),
+        region: region,
+        zip: safeDecode(request.headers.get("x-vercel-ip-postal-code")),
         lat: null,
         lon: null,
         currency: COUNTRY_TO_CURRENCY[headerCountry] || "USD",

@@ -19,8 +19,6 @@ import {
 const GATEWAYS = [
   { id: "stripe", name: "Stripe", desc: "Hosted checkout for cards and wallet payments.", fees: "2.9% + 30c" },
   { id: "razorpay", name: "Razorpay", desc: "UPI, cards, and netbanking for India-first checkout.", fees: "2% domestic" },
-  { id: "paypal", name: "PayPal", desc: "Global approval flow with wallet and card support.", fees: "2.99% + fixed" },
-  { id: "flutterwave", name: "Flutterwave", desc: "Cards and local methods for African markets.", fees: "1.4% local / 3.8% intl" },
   { id: "cod", name: "Cash on Delivery", desc: "Accept payment at delivery and settle later.", fees: "No online gateway fee" },
 ];
 

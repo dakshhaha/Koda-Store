@@ -25,6 +25,7 @@ interface PaymentPayload {
   currency: string;
   payment: {
     id: string;
+    amount?: number;
     redirectUrl?: string;
     publicKey?: string;
   };
@@ -34,8 +35,6 @@ interface PaymentPayload {
 const ONLINE_GATEWAYS: Array<{ id: PaymentGatewayName; label: string }> = [
   { id: "stripe", label: "Stripe" },
   { id: "razorpay", label: "Razorpay" },
-  { id: "paypal", label: "PayPal" },
-  { id: "flutterwave", label: "Flutterwave" },
 ];
 
 const loadRazorpayScript = () =>
@@ -136,7 +135,7 @@ export default function PayOnlineButton({ orderId, locale, compact = false }: Pa
         setLoading(false);
         const razorpay = new window.Razorpay({
           key: payload.payment.publicKey,
-          amount: Math.round(Number(payload.amount) * 100),
+          amount: Math.round(Number(payload.payment.amount || payload.amount) * 100),
           currency: payload.currency,
           name: "Koda Store",
           description: `Order ${String(orderId).slice(0, 8).toUpperCase()}`,

@@ -3,25 +3,26 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { User, LogOut, ShoppingCart, Settings, Globe, ChevronDown } from "lucide-react";
+import { User, LogOut, ShoppingCart, Settings, Globe, ChevronDown, Coins } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 
 interface NavActionsProps {
-  session: { userId: string; email: string; name?: string; role: string } | null;
   locale: string;
   currency: string;
+  session: any;
+  user?: any;
 }
 
-export default function NavActions({ session, locale, currency }: NavActionsProps) {
+export default function NavActions({ locale, currency, session, user }: NavActionsProps) {
   const router = useRouter();
   const { cartCount } = useCart();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dropdownTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const clearCloseTimer = () => {
-    if (closeTimerRef.current) {
-      clearTimeout(closeTimerRef.current);
-      closeTimerRef.current = null;
+    if (dropdownTimerRef.current) {
+      clearTimeout(dropdownTimerRef.current);
+      dropdownTimerRef.current = null;
     }
   };
 
@@ -30,9 +31,9 @@ export default function NavActions({ session, locale, currency }: NavActionsProp
     setIsDropdownOpen(true);
   };
 
-  const closeDropdown = (delay = 140) => {
+  const closeDropdown = (delay = 300) => {
     clearCloseTimer();
-    closeTimerRef.current = setTimeout(() => {
+    dropdownTimerRef.current = setTimeout(() => {
       setIsDropdownOpen(false);
     }, delay);
   };
@@ -78,38 +79,54 @@ export default function NavActions({ session, locale, currency }: NavActionsProp
           >
             <button
               type="button"
-              className="user-profile-badge"
-              onClick={() => setIsDropdownOpen((prev) => !prev)}
-              onFocus={openDropdown}
-              aria-haspopup="menu"
-              aria-expanded={isDropdownOpen}
+              className="profile-trigger"
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             >
-              <User size={16} />
-              <span style={{ fontSize: "0.875rem", fontWeight: 600 }}>{session.name || session.email.split("@")[0]}</span>
-              <ChevronDown size={14} style={{ transition: "transform 0.2s", transform: isDropdownOpen ? "rotate(180deg)" : "rotate(0deg)" }} />
+              <div className="avatar-placeholder">
+                <User size={16} />
+              </div>
+              <span className="profile-name">{user?.name || "Member"}</span>
+              <ChevronDown size={14} className={`chevron-icon ${isDropdownOpen ? 'open' : ''}`} />
             </button>
 
-            <div
-              className={`profile-dropdown ${isDropdownOpen ? "open" : ""}`}
-              role="menu"
-              onMouseEnter={openDropdown}
-              onMouseLeave={() => closeDropdown()}
-              onBlur={(event) => {
-                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-                  closeDropdown(0);
-                }
-              }}
-            >
-              <Link href={`/${locale}/account/settings`} className="dropdown-link">
-                <Settings size={14} /> Account Settings
-              </Link>
-              <button 
-                className="dropdown-link logout"
-                onClick={handleLogout}
+            {isDropdownOpen && (
+              <div 
+                className="profile-dropdown animate-scale-up"
+                onMouseEnter={openDropdown}
+                onMouseLeave={() => closeDropdown(100)}
               >
-                <LogOut size={14} /> Log Out
-              </button>
-            </div>
+                <div className="dropdown-header">
+                  <span className="user-email">{user?.email || session?.email}</span>
+                  <div className="aura-coin-balance">
+                    <span className="coin-icon-circle">
+                      <Coins size={18} />
+                    </span>
+                    <span>{session?.auraCoins ?? user?.auraCoins ?? 0} Aura Coins</span>
+                  </div>
+                </div>
+                
+                <div className="dropdown-divider"></div>
+                
+                <Link href={`/${locale}/rewards`} className="dropdown-link">
+                  <Coins size={14} /> Rewards Store
+                </Link>
+                <Link href={`/${locale}/referrals`} className="dropdown-link">
+                  <User size={14} /> Refer & Earn
+                </Link>
+                <Link href={`/${locale}/orders`} className="dropdown-link">
+                  <ShoppingCart size={14} /> Order History
+                </Link>
+                <Link href={`/${locale}/account/settings`} className="dropdown-link">
+                  <Settings size={14} /> Account Settings
+                </Link>
+                <button 
+                  className="dropdown-link logout"
+                  onClick={handleLogout}
+                >
+                  <LogOut size={14} /> Log Out
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

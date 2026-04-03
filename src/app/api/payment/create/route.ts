@@ -158,6 +158,7 @@ export async function POST(request: Request) {
         discountAmount,
         couponCode: appliedCoupon?.code || null,
         total: finalTotal,
+        currency: normalizedCurrency,
         status: "pending",
         paymentGateway: requestedGateway,
         paymentId,
@@ -208,8 +209,8 @@ export async function POST(request: Request) {
         metadata: {
           orderId: order.id,
           orderLabel: `Order ${order.id.slice(0, 8).toUpperCase()}`,
-          customerEmail: shippingDetails?.email || session.email,
-          customerName: `${shippingDetails?.firstName || ""} ${shippingDetails?.lastName || ""}`.trim() || session.name,
+          customerEmail: shippingDetails?.email || session.email || "guest@kodastore.com",
+          customerName: `${shippingDetails?.firstName || ""} ${shippingDetails?.lastName || ""}`.trim() || session.name || "Customer",
         },
       });
 

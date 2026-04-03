@@ -32,6 +32,31 @@ export async function POST(
       },
     });
 
+    // Check if this user was referred and award remaining 400 coins on first delivered order
+    // (100 already awarded on registration, 400 more on first delivery)
+    const referral = await prisma.referral.findFirst({
+      where: {
+        referredId: order.userId,
+        status: "registered",
+        rewardAwarded: false,
+      },
+    });
+
+    if (referral) {
+      await prisma.referral.update({
+        where: { id: referral.id },
+        data: { status: "completed", rewardAwarded: true },
+      });
+
+      // Award remaining 400 coins to the referrer
+      await prisma.user.update({
+        where: { id: referral.referrerId },
+        data: { auraCoins: { increment: 400 } },
+      });
+
+      console.log("Referral reward completed:", { referralId: referral.id, referrerId: referral.referrerId, additionalCoins: 400 });
+    }
+
     return NextResponse.json({
       success: true,
       message: "Payment approved successfully.",

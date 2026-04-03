@@ -39,6 +39,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid payment identifier" }, { status: 400 });
     }
 
+    let signatureValid = false;
+
     if (gatewayName === "razorpay") {
       if (!razorpayOrderId || !razorpaySignature) {
         return NextResponse.json({ error: "Razorpay signature data is required." }, { status: 400 });
@@ -53,7 +55,11 @@ export async function POST(request: Request) {
         .update(`${razorpayOrderId}|${normalizedPaymentId}`)
         .digest("hex");
 
-      if (expectedSignature !== razorpaySignature) {
+      if (expectedSignature === razorpaySignature) {
+        signatureValid = true;
+        console.log("Razorpay signature verified successfully for order:", order.id);
+      } else {
+        console.error("Razorpay signature mismatch:", { expected: expectedSignature, received: razorpaySignature, orderId: order.id });
         await prisma.order.update({
           where: { id: order.id },
           data: { status: "pending" },
@@ -62,7 +68,20 @@ export async function POST(request: Request) {
       }
     }
 
-    const result = await paymentGateway.verifyPayment(normalizedPaymentId);
+    let result;
+    try {
+      result = await paymentGateway.verifyPayment(normalizedPaymentId);
+      console.log("Payment verification result:", JSON.stringify(result));
+    } catch (verifyError) {
+      console.error("Payment gateway verification failed:", verifyError);
+      // If signature was valid, trust it even if API fetch fails (common in test mode)
+      if (gatewayName === "razorpay" && signatureValid) {
+        console.log("Signature was valid, marking order as paid despite gateway verification failure");
+        result = { verified: true, status: "captured" };
+      } else {
+        throw verifyError;
+      }
+    }
 
     await prisma.order.update({
       where: { id: order.id },
@@ -72,6 +91,8 @@ export async function POST(request: Request) {
         status: result.verified ? "paid" : "pending",
       },
     });
+
+    console.log("Order updated:", { orderId: order.id, newStatus: result.verified ? "paid" : "pending" });
 
     return NextResponse.json({
       success: result.verified,

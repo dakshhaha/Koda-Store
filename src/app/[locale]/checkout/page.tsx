@@ -8,6 +8,7 @@ import {
   CreditCard,
   ShieldCheck,
   Check,
+  LayoutTemplate,
   ChevronRight,
   Landmark,
   Wallet,
@@ -66,39 +67,25 @@ interface AppliedCoupon {
 
 const GATEWAYS: GatewayOption[] = [
   {
+    id: "cod",
+    name: "Cash on Delivery",
+    Icon: Truck,
+    features: ["Pay at doorstep", "Available for eligible regions"],
+    fees: "No online processing fee",
+  },
+  {
     id: "stripe",
     name: "Stripe Checkout",
     Icon: CreditCard,
-    features: ["Hosted checkout page", "Cards, Apple Pay, Google Pay", "Global currency support"],
+    features: ["Cards, Apple Pay, Google Pay"],
     fees: "2.9% + $0.30 per transaction",
   },
   {
     id: "razorpay",
     name: "Razorpay",
     Icon: Landmark,
-    features: ["UPI, cards, netbanking", "Best for India", "Razorpay secure popup"],
-    fees: "2% per transaction (domestic INR)",
-  },
-  {
-    id: "paypal",
-    name: "PayPal",
-    Icon: Wallet,
-    features: ["Buyer protection", "Global wallet", "Secure hosted approval"],
-    fees: "3.49% + fixed fee",
-  },
-  {
-    id: "flutterwave",
-    name: "Flutterwave",
-    Icon: Globe2,
-    features: ["Cards + bank transfer", "Strong Africa coverage", "Hosted payment page"],
-    fees: "1.4% local / 3.8% international",
-  },
-  {
-    id: "cod",
-    name: "Cash on Delivery",
-    Icon: Truck,
-    features: ["Pay at doorstep", "Available for eligible regions", "Switch to online later from orders"],
-    fees: "No online processing fee",
+    features: ["UPI, cards, netbanking"],
+    fees: "2% per transaction",
   },
 ];
 
@@ -773,44 +760,99 @@ export default function CheckoutPage() {
               )}
 
               <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                {availableGateways.map((gateway) => (
+                {availableGateways.find(g => g.id === "cod") && (
                   <button
-                    key={gateway.id}
                     type="button"
                     className="admin-card"
-                    onClick={() => setSelectedGateway(gateway.id)}
+                    onClick={() => setSelectedGateway("cod")}
                     style={{
                       cursor: "pointer",
-                      border: selectedGateway === gateway.id ? "2px solid var(--primary)" : "2px solid transparent",
+                      border: selectedGateway === "cod" ? "2px solid var(--primary)" : "2px solid transparent",
                       transition: "all 0.2s",
                       textAlign: "left",
+                      margin: 0
                     }}
                   >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                      <div>
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
-                          <span style={{ width: "36px", height: "36px", borderRadius: "8px", background: "var(--primary-container)", color: "var(--on-primary-container)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                            <gateway.Icon size={16} />
-                          </span>
-                          <h3 style={{ fontSize: "1.125rem", fontWeight: 700 }}>{gateway.name}</h3>
-                        </div>
-                        <p style={{ fontSize: "0.75rem", color: "var(--on-surface-variant)", marginBottom: "0.75rem" }}>Fees: {gateway.fees}</p>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.375rem" }}>
-                          {gateway.features.map((feature) => (
-                            <span key={feature} style={{ fontSize: "0.6875rem", background: "var(--surface-container-low)", padding: "0.25rem 0.625rem", borderRadius: "100px", color: "var(--on-surface-variant)" }}>
-                              {feature}
-                            </span>
-                          ))}
-                        </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                        <span style={{ width: "36px", height: "36px", borderRadius: "8px", background: "var(--primary-container)", color: "var(--on-primary-container)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <Truck size={16} />
+                        </span>
+                        <h3 style={{ fontSize: "1.125rem", fontWeight: 700 }}>Cash on Delivery</h3>
                       </div>
-                      {selectedGateway === gateway.id && (
+                      {selectedGateway === "cod" && (
                         <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: "var(--primary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                           <Check size={16} />
                         </div>
                       )}
                     </div>
+                    <p style={{ fontSize: "0.75rem", color: "var(--on-surface-variant)", marginTop: "0.75rem" }}>Pay at doorstep when your order arrives. Available for eligible regions.</p>
                   </button>
-                ))}
+                )}
+
+                <div style={{ height: "1px", background: "var(--outline-variant)", margin: "0.5rem 0" }} />
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                  {availableGateways.find(g => g.id === "stripe") && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedGateway("stripe")}
+                      style={{
+                        cursor: "pointer",
+                        border: selectedGateway === "stripe" ? "3px solid #635bff" : "2px solid var(--surface-container-high)",
+                        backgroundColor: selectedGateway === "stripe" ? "#635bff" : "white",
+                        borderRadius: "16px",
+                        padding: "1rem",
+                        position: "relative",
+                        overflow: "hidden",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        height: "80px",
+                        transition: "all 0.2s",
+                        boxShadow: selectedGateway === "stripe" ? "0 10px 25px rgba(99, 91, 255, 0.3)" : "none"
+                      }}
+                    >
+                      <span style={{ fontWeight: 800, fontSize: "1.5rem", color: selectedGateway === "stripe" ? "white" : "#635bff", letterSpacing: "-0.5px" }}>stripe</span>
+                      {selectedGateway === "stripe" && (
+                        <div style={{ position: "absolute", top: "0.5rem", right: "0.5rem", width: "20px", height: "20px", borderRadius: "50%", background: "white", color: "#635bff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 5px rgba(0,0,0,0.2)" }}>
+                          <Check size={12} strokeWidth={3} />
+                        </div>
+                      )}
+                    </button>
+                  )}
+
+                  {availableGateways.find(g => g.id === "razorpay") && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedGateway("razorpay")}
+                      style={{
+                        cursor: "pointer",
+                        border: selectedGateway === "razorpay" ? "3px solid #3395ff" : "2px solid var(--surface-container-high)",
+                        backgroundColor: selectedGateway === "razorpay" ? "#3395ff" : "white",
+                        borderRadius: "16px",
+                        padding: "1rem",
+                        position: "relative",
+                        overflow: "hidden",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        height: "80px",
+                        transition: "all 0.2s",
+                        gap: "0.5rem",
+                        boxShadow: selectedGateway === "razorpay" ? "0 10px 25px rgba(51, 149, 255, 0.3)" : "none"
+                      }}
+                    >
+                      <LayoutTemplate size={24} color={selectedGateway === "razorpay" ? "white" : "#3395ff"} />
+                      <span style={{ fontWeight: 700, fontSize: "1.3rem", color: selectedGateway === "razorpay" ? "white" : "#02042b" }}>Razorpay</span>
+                      {selectedGateway === "razorpay" && (
+                        <div style={{ position: "absolute", top: "0.5rem", right: "0.5rem", width: "20px", height: "20px", borderRadius: "50%", background: "white", color: "#3395ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 5px rgba(0,0,0,0.2)" }}>
+                          <Check size={12} strokeWidth={3} />
+                        </div>
+                      )}
+                    </button>
+                  )}
+                </div>
               </div>
 
               <button className="btn btn-primary btn-lg" style={{ width: "100%", marginTop: "1.5rem", height: "3.25rem" }} onClick={handleCheckout} disabled={loading || availableGateways.length === 0}>

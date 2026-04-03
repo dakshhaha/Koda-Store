@@ -11,12 +11,14 @@ import {
   House,
   Megaphone,
   Users,
+  Ticket,
 } from "lucide-react";
 
 const ADMIN_LINKS = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/products", label: "Products", icon: Package },
   { href: "/admin/orders", label: "Orders", icon: ShoppingCart },
+  { href: "/admin/coupons", label: "Coupons", icon: Ticket },
   { href: "/admin/support", label: "Support", icon: MessageSquare },
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/announcements", label: "Announcements", icon: Megaphone },

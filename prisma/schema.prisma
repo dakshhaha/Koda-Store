@@ -20,6 +20,7 @@ model User {
   country                 String?
   locale                  String           @default("en-US")
   currency                String           @default("USD")
+  auraCoins               Int              @default(0)
   createdAt               DateTime         @default(now())
   updatedAt               DateTime         @updatedAt
   passwordChangedAt       DateTime?
@@ -28,6 +29,8 @@ model User {
   reviews                 Review[]
   assignedSupportSessions SupportSession[] @relation("AssignedSupportAgent")
   supportSessions         SupportSession[] @relation("CustomerSupportSessions")
+  referrals               Referral[]       @relation("ReferralReferrer")
+  referredBy              Referral[]       @relation("ReferralReferred")
 }
 
 model Address {
@@ -162,4 +165,18 @@ model Coupon {
   usedCount     Int       @default(0)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+}
+
+model Referral {
+  id            String   @id @default(uuid())
+  referrerId    String
+  referredId    String
+  status        String   @default("pending")
+  rewardAwarded Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  referrer      User     @relation("ReferralReferrer", fields: [referrerId], references: [id])
+  referred      User     @relation("ReferralReferred", fields: [referredId], references: [id])
+
+  @@unique([referrerId, referredId])
 }
