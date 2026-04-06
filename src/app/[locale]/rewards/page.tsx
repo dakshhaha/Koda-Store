@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import { Coins, Ticket, Sparkles, Gift, Share2, Copy, CheckCircle2, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -13,28 +14,35 @@ interface UserProfile {
 
 export default function RewardsPage() {
   const { locale } = useParams();
+  const { data: session, status: sessionStatus } = useSession();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [redeeming, setRedeeming] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    fetchProfile();
-  }, []);
+    if (sessionStatus === "authenticated") {
+      fetchProfile();
+    } else if (sessionStatus === "unauthenticated") {
+      setProfile(null);
+      setLoading(false);
+    }
+  }, [sessionStatus]);
 
   const fetchProfile = async () => {
     try {
-      const res = await fetch("/api/auth/status");
+      const res = await fetch("/api/user/profile");
       const data = await res.json();
-      if (data.authenticated && data.user) {
-        const rawUser = data.user;
+      if (data && data.id) {
         setProfile({
-          id: rawUser.userId || rawUser.id || "",
-          name: rawUser.name || "",
-          auraCoins: rawUser.auraCoins || 0,
+          id: data.id,
+          name: data.name || "",
+          auraCoins: data.auraCoins || 0,
         });
       }
-    } catch {}
+    } catch (err) {
+      console.error("Failed to fetch profile in rewards:", err);
+    }
     setLoading(false);
   };
 

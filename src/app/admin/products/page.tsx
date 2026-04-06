@@ -78,7 +78,7 @@ export default function AdminProductsPage() {
           </thead>
           <tbody>
             {products.map((product) => {
-              const images = JSON.parse(product.images || "[]") as string[];
+              const images = (product.images || []) as string[];
               return (
                 <tr key={product.id} style={{ borderTop: "1px solid var(--outline-variant)", transition: "background 0.2s" }} className="hover-row">
                   <td style={{ padding: "1.25rem", display: "flex", alignItems: "center", gap: "1rem" }}>

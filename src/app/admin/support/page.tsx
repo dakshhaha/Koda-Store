@@ -58,8 +58,7 @@ export default function AdminSupportPortal() {
       ) : (
         <div className="grid grid-2">
           {sessions.map(session => {
-            const messages = JSON.parse(session.messages || "[]");
-            const lastMessage = messages[messages.length - 1];
+            const lastMessage = session.chatMessages?.[0];
 
             return (
               <div key={session.id} className="admin-card animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

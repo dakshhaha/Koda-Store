@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { signIn } from "next-auth/react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -19,30 +20,25 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Login failed");
+      if (result?.error) {
+        throw new Error("Credential mismatch or unrecognized identity.");
       }
 
       const redirectTo = searchParams.get("redirect");
       const target = redirectTo && redirectTo.startsWith("/")
         ? redirectTo
-        : data.user?.role === "admin"
-          ? "/admin"
-          : data.user?.role === "support"
-            ? "/admin/support"
-          : `/${locale}`;
+        : `/${locale}`;
+        
       router.push(target);
       router.refresh();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      setError(err instanceof Error ? err.message : "Authentication failed");
     } finally {
       setLoading(false);
     }

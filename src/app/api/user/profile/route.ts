@@ -59,6 +59,7 @@ export async function GET() {
         locale: true,
         currency: true,
         role: true,
+        auraCoins: true,
         addresses: true,
       }
     });

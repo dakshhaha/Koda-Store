@@ -2,6 +2,7 @@ import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import AdminApprovePaymentButton from "@/components/AdminApprovePaymentButton";
+import AdminMarkStatusButton from "@/components/AdminMarkStatusButton";
 import { formatCurrency, normalizeCurrency } from "@/lib/currency";
 
 export default async function AdminOrders() {
@@ -38,7 +39,10 @@ export default async function AdminOrders() {
             <tbody>
               {orders.map((order) => {
                 const itemCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
-                const canApprovePayment = ["failed", "cancelled", "pending"].includes(order.status.toLowerCase());
+                const normalizedStatus = order.status.toLowerCase();
+                const canApprovePayment = ["failed", "cancelled", "pending"].includes(normalizedStatus);
+                const canMarkShipped = ["paid", "pending"].includes(normalizedStatus);
+                const canMarkDelivered = ["paid", "shipped"].includes(normalizedStatus);
                 const orderCurrency = normalizeCurrency(order.currency);
                 return (
                   <tr key={order.id}>
@@ -62,11 +66,14 @@ export default async function AdminOrders() {
                     </td>
                     <td style={{ color: "var(--on-surface-variant)", fontSize: "0.8125rem" }}>{order.createdAt.toLocaleDateString()}</td>
                     <td>
-                      {canApprovePayment ? (
-                        <AdminApprovePaymentButton orderId={order.id} />
-                      ) : (
-                        <span style={{ fontSize: "0.75rem", color: "var(--on-surface-variant)" }}>No action</span>
-                      )}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        {canApprovePayment && <AdminApprovePaymentButton orderId={order.id} />}
+                        {canMarkShipped && <AdminMarkStatusButton orderId={order.id} status="shipped" />}
+                        {canMarkDelivered && <AdminMarkStatusButton orderId={order.id} status="delivered" />}
+                        {!canApprovePayment && !canMarkShipped && !canMarkDelivered && (
+                          <span style={{ fontSize: "0.75rem", color: "var(--on-surface-variant)" }}>No action</span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

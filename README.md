@@ -2,7 +2,7 @@
 
 ![Koda Store Banner](https://github.com/dakshhaha/Koda-Store/blob/884553df750a58c775ca5cfdca579087e5ececed/public/images/page.PNG)
 
-**Koda Store** is a premium, high-performance e-commerce ecosystem built with Next.js 15 (App Router), React 19, and PostgreSQL. It features an advanced AI-powered customer support system, a dual-stage referral economy, and a "Curated Light" editorial design system.
+**Koda Store** is a premium, high-performance e-commerce ecosystem built with Next.js 16 (App Router), React 19, and PostgreSQL. It features an advanced AI-powered customer support system, a dual-stage referral economy, and a "Curated Light" editorial design system.
 
 🌍 **Live Demo:** [koda-store.vercel.app](https://koda-store.vercel.app/)
 
@@ -10,14 +10,15 @@
 
 ---
 
-## 🌟 Key Features
+## 🌟 Key Features (v0.2)
 
-* **⚡ Cutting-Edge Stack**: Next.js 15, React 19, Tailwind CSS v4, and Prisma 6/7.
-* **🤖 AI Support Ecosystem**: Specialized customer support bot with product embedding, order tracking, and seamless human agent escalation.
-* **💰 Aura Rewards & Referrals**: A sophisticated growth engine with dual-stage rewards (Signup + Delivery).
+* **⚡ Cutting-Edge Stack**: Next.js 16 (Turbopack), React 19, Tailwind CSS v4, and Prisma 7.
+* **🛡️ Auth.js v5 Ecosystem**: Secure, modern session management replacing legacy JWT systems.
+* **🤖 Advanced AI Support**: Tool-calling agent with vector-based RAG (pgvector) for ultra-precise customer assistance and product recommendations.
+* **💰 Aura Rewards & Referrals**: Sophisticated growth engine with dual-stage rewards (Signup + Delivery) and real-time database synchronization.
 * **🌍 Global Optimization**: Automatic IP-based localization, real-time currency conversion, and regional pricing.
 * **💳 Unified Payment Gateway**: Robust support for Stripe, Razorpay, and COD, including seamless COD-to-Online payment conversion.
-* **🛠️ Enterprise Admin Suite**: Comprehensive control over inventory, orders, user roles, support sessions, and site configuration.
+* **🛠️ Enterprise Admin Suite**: Comprehensive control over inventory, orders, user roles, support sessions (now with scrollable history), and site configuration.
 
 ---
 
@@ -29,9 +30,10 @@ The store features a proprietary virtual currency, **Aura Coins**, integrated in
 - **Spending**: Aura can be used in the dedicated Rewards Store for discounts or exclusive items.
 - **Dynamic Tracking**: Real-time balance updates in the navigation profile and rewards dashboard.
 
-### 🧠 AI Customer Support
+### 🧠 AI Customer Support (Koda Agent)
 More than a chatbot, the Koda AI is a full-service assistant:
-- **Product Context**: Links products directly in chat cards with rich UI embeds.
+- **RAG & Embeddings**: Uses `pgvector` for high-fidelity semantic search across the product catalog.
+- **Tool-Calling**: The agent can autonomously call internal APIs to check order status, fetch product details, and initiate support sessions.
 - **Order Awareness**: Authenticated users can ask about their specific order status.
 - **Escalation Logic**: Automatically detects complex queries and initializes a human support session in the Admin Portal.
 - **Model Agnostic**: Integrated fallback for Gemini, OpenRouter, and Claude.

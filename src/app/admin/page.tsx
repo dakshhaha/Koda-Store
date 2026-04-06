@@ -2,13 +2,14 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { MessageSquare, Settings, ShoppingBag, TrendingUp, Users } from "lucide-react";
+import { MessageSquare, Settings, ShoppingBag, TrendingUp, Users, BarChart3 } from "lucide-react";
+import { formatCurrency } from "@/lib/currency";
 
 export default async function AdminDashboard() {
   const session = await getSession();
   if (session?.role !== "admin") redirect("/en-US/auth/login");
 
-  const [userCount, orderCount, productCount, totalRevenue, ticketCount, recentOrders] = await Promise.all([
+  const [userCount, orderCount, productCount, totalRevenue, ticketCount, recentOrders, settings] = await Promise.all([
     prisma.user.count(),
     prisma.order.count(),
     prisma.product.count(),
@@ -19,7 +20,10 @@ export default async function AdminDashboard() {
       orderBy: { createdAt: "desc" },
       include: { user: { select: { name: true, email: true } } },
     }),
+    prisma.siteSettings.findUnique({ where: { id: "global" } }),
   ]);
+
+  const storeCurrency = settings?.currency || "USD";
 
   return (
     <div>
@@ -46,7 +50,7 @@ export default async function AdminDashboard() {
         </div>
         <div className="stat-card">
           <p className="stat-label">Revenue</p>
-          <div className="stat-value">${(totalRevenue._sum.total || 0).toFixed(2)}</div>
+          <div className="stat-value">{formatCurrency(totalRevenue._sum.total || 0, storeCurrency)}</div>
           <p className="stat-change">Captured order value</p>
         </div>
         <div className="stat-card">
@@ -81,7 +85,7 @@ export default async function AdminDashboard() {
               <tr key={order.id}>
                 <td style={{ fontWeight: 700 }}>#{order.id.slice(0, 8).toUpperCase()}</td>
                 <td>{order.user?.name || order.user?.email || "Guest"}</td>
-                <td>${order.total.toFixed(2)}</td>
+                <td style={{ fontWeight: 700 }}>{formatCurrency(order.total, order.currency || storeCurrency)}</td>
                 <td>
                   <span className={`badge ${order.status === "delivered" ? "badge-success" : order.status === "pending" ? "badge-warning" : "badge-info"}`}>
                     {order.status}
@@ -95,6 +99,13 @@ export default async function AdminDashboard() {
       </div>
 
       <div className="grid grid-2" style={{ marginTop: "1.5rem" }}>
+        <Link href="/admin/analytics" className="admin-card" style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: 0 }}>
+          <BarChart3 size={18} />
+          <div>
+            <p style={{ fontWeight: 700 }}>Analytics Dashboard</p>
+            <p style={{ fontSize: "0.8125rem", color: "var(--on-surface-variant)" }}>Revenue, growth, and performance charts</p>
+          </div>
+        </Link>
         <Link href="/admin/products" className="admin-card" style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: 0 }}>
           <ShoppingBag size={18} />
           <div>

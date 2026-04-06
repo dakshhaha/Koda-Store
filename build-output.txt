@@ -1,0 +1,96 @@
+﻿Γû▓ Next.js 16.2.2 (Turbopack)
+- Environments: .env
+
+node.exe : ΓÜá The 
+"middleware" file 
+convention is deprecated. 
+Please use "proxy" 
+instead. Learn more: https:
+//nextjs.org/docs/messages/
+middleware-to-proxy
+At line:1 char:1
++ & "D:\NodeJS/node.exe" "D
+:\NodeJS/node_modules/npm/b
+in/npx-cli.js" ne ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
+    + CategoryInfo         
+     : NotSpecified: (ΓÜá  
+   The "middle...leware-   
+ to-proxy:String) [], R    
+emoteException
+    + FullyQualifiedErrorI 
+   d : NativeCommandError
+ 
+  Creating an optimized production build ...
+Γ£ô Compiled successfully in 19.3s
+  Running TypeScript ...
+Failed to type check.
+
+./src/app/api/chat/route.ts
+:154:61
+Type error: Argument of 
+type '{ where: { userId: 
+string; }; orderBy: { 
+updatedAt: "desc"; }; 
+take: 10; select: { id: 
+true; status: true; 
+updatedAt: true; }; 
+include: { chatMessages: { 
+orderBy: { createdAt: 
+"desc"; }; take: number; 
+}; }; }' is not assignable 
+to parameter of type 
+'SelectSubset<{ where: { 
+userId: string; }; 
+orderBy: { updatedAt: 
+"desc"; }; take: 10; 
+select: { id: true; 
+status: true; updatedAt: 
+true; }; include: { 
+chatMessages: { orderBy: { 
+createdAt: "desc"; }; 
+take: number; }; }; }, Supp
+ortSessionFindManyArgs<...>
+>'.
+  Type '{ where: { userId: 
+string; }; orderBy: { 
+updatedAt: "desc"; }; 
+take: 10; select: { id: 
+true; status: true; 
+updatedAt: true; }; 
+include: { chatMessages: { 
+orderBy: { createdAt: 
+"desc"; }; take: number; 
+}; }; }' is not assignable 
+to type '"Please either 
+choose `select` or 
+`include`."'.
+
+  [90m152 |[0m         
+[36mreturn[0m [33mNextRe
+sponse[0m.json({ success: 
+[36mtrue[0m, sessions: 
+[] });
+  [90m153 |[0m       }
+[31m[1m>[0m [90m154 
+|[0m       [36mconst[0m 
+sessions = [36mawait[0m p
+risma.supportSession.findMa
+ny({
+  [90m    |[0m           
+                           
+                       
+[31m[1m^[0m
+  [90m155 |[0m         
+where: { userId: 
+userSession.userId },
+  [90m156 |[0m         
+orderBy: { updatedAt: 
+[32m"desc"[0m },
+  [90m157 |[0m         
+take: [35m10[0m,
+Next.js build worker 
+exited with code: 1 and 
+signal: null

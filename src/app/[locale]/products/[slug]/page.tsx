@@ -48,7 +48,7 @@ export default async function ProductDetailPage({
     similarProducts = [...primarySimilar, ...fallbackProducts];
   }
 
-  const images = JSON.parse(product.images || "[]");
+  const images = (product.images || []) as string[];
   const displayPrice = convertUsdToCurrency(product.salePrice || product.price, currency);
   const displayOriginalPrice = convertUsdToCurrency(product.price, currency);
   const freeShippingThreshold = convertUsdToCurrency(200, currency);
@@ -158,12 +158,9 @@ export default async function ProductDetailPage({
           <div className="grid grid-4" style={{ gap: "1.25rem" }}>
             {similarProducts.map((item, index) => {
               let thumb = "/placeholder.png";
-              try {
-                const parsedImages = JSON.parse(item.images || "[]");
-                if (Array.isArray(parsedImages) && parsedImages[0]) {
-                  thumb = parsedImages[0];
-                }
-              } catch {
+              const parsedImages = (item.images || []) as string[];
+              if (Array.isArray(parsedImages) && parsedImages[0]) {
+                thumb = parsedImages[0];
               }
 
               return (

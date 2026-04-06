@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import { MessageCircle, X, Send, User, Bot, Loader2, BadgeAlert, Sparkles, ArrowLeft, Plus, ChevronRight, Clock, CheckCircle, ShieldAlert } from "lucide-react";
 import type { ChatMessage } from "@/lib/ai";
 
@@ -47,6 +48,7 @@ export default function AIChatCard() {
   
   const [waitStats, setWaitStats] = useState<{ estimatedWaitMinutes: number; activeWaitCount: number } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { data: session } = useSession();
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -55,16 +57,10 @@ export default function AIChatCard() {
   }, [messages, view]);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const res = await fetch("/api/auth/status");
-        const data = await res.json();
-        if (data.forcedLogout) setShowLogoutModal(true);
-      } catch (err) {}
-    };
-    const authInterval = setInterval(checkAuth, 5000);
-    return () => clearInterval(authInterval);
-  }, []);
+    if (session?.user && (session.user as any).forcedLogout) {
+      setShowLogoutModal(true);
+    }
+  }, [session]);
 
   const playNotificationSound = useCallback(async () => {
     try {

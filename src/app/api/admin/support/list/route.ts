@@ -11,7 +11,10 @@ export async function GET() {
 
     const sessions = await prisma.supportSession.findMany({
       where: { status: { in: ["human_needed", "agent_active"] } },
-      include: { user: { select: { name: true, email: true, phone: true } } },
+      include: {
+        user: { select: { name: true, email: true, phone: true } },
+        chatMessages: { orderBy: { createdAt: "desc" }, take: 1 },
+      },
       orderBy: { updatedAt: "desc" }
     });
 

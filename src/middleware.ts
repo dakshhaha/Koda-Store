@@ -1,5 +1,8 @@
+import { authConfig } from "@/auth.config";
+import NextAuth from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
-import { decrypt, SESSION_COOKIE_NAME } from "@/lib/auth";
+
+const { auth } = NextAuth(authConfig);
 
 const PUBLIC_FILE = /\.(.*)$/;
 const SUPPORTED_LOCALES = ["en-US", "en-GB", "en-IN", "en-NG", "en-CA", "en-AU", "en-JP", "en-DE", "en-FR", "en-BR"];
@@ -43,8 +46,12 @@ function detectCountry(request: NextRequest): string {
   return "US";
 }
 
-export async function middleware(request: NextRequest) {
+// Simple in-memory rate limiting for demonstration/dev
+const rateLimitMap = new Map<string, { count: number, resetAt: number }>();
+
+export default auth(async (request) => {
   const { pathname } = request.nextUrl;
+  const user = request.auth?.user as any;
 
   // 1. SKIP STATIC & API & IMAGES
   if (
@@ -56,18 +63,30 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 2. AUTHENTICATION
-  const session = request.cookies.get(SESSION_COOKIE_NAME)?.value;
-  let user = null;
-  if (session) {
-    user = await decrypt(session);
+  // Rate limiting for AI chat route
+  if (pathname.startsWith("/api/chat")) {
+    const ip = request.headers.get("x-forwarded-for") || "static-client";
+    const now = Date.now();
+    const limitInfo = rateLimitMap.get(ip) || { count: 0, resetAt: now + 60000 };
+    
+    if (now > limitInfo.resetAt) {
+      limitInfo.count = 0;
+      limitInfo.resetAt = now + 60000;
+    }
+    
+    if (limitInfo.count >= 20) {
+      return NextResponse.json({ error: "Too many curation requests. Please wait a moment." }, { status: 429 });
+    }
+    
+    limitInfo.count++;
+    rateLimitMap.set(ip, limitInfo);
   }
 
   const detectedCountry = detectCountry(request);
   const detectedLocale = COUNTRY_TO_LOCALE[detectedCountry] || "en-US";
   const detectedCurrency = COUNTRY_TO_CURRENCY[detectedCountry] || "USD";
 
-  // 3. ADMIN / SUPPORT ROUTES - DO NOT redirect to locale, just check auth
+  // 3. ADMIN / SUPPORT ROUTES
   if (pathname.startsWith("/admin")) {
     const loginRedirect = `/${detectedLocale}/auth/login?redirect=${encodeURIComponent(pathname)}`;
     const isSupportPortal = pathname.startsWith("/admin/support");
@@ -107,6 +126,10 @@ export async function middleware(request: NextRequest) {
     const response = NextResponse.redirect(url);
     response.headers.set("x-detected-locale", locale);
     response.headers.set("x-detected-currency", currency);
+    response.headers.set("X-Content-Type-Options", "nosniff");
+    response.headers.set("X-Frame-Options", "DENY");
+    response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+    response.headers.set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://api.razorpay.com https://generativelanguage.googleapis.com;");
     return response;
   }
 
@@ -141,7 +164,7 @@ export async function middleware(request: NextRequest) {
   }
 
   return response;
-}
+});
 
 export const config = {
   matcher: [

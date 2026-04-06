@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { useParams } from "next/navigation";
 import { Share2, Copy, CheckCircle2, Gift, Users, ArrowRight, Clock, CheckCircle, Award } from "lucide-react";
 import Link from "next/link";
@@ -20,6 +21,7 @@ interface ReferralEntry {
 
 export default function ReferralsPage() {
   const { locale } = useParams();
+  const { data: session, status: sessionStatus } = useSession();
   const [profile, setProfile] = useState<{id: string, name: string, auraCoins: number} | null>(null);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -27,25 +29,19 @@ export default function ReferralsPage() {
   const [referralHistory, setReferralHistory] = useState<ReferralEntry[]>([]);
 
   useEffect(() => {
-    fetchProfile();
-    fetchReferralStats();
-  }, []);
-
-  const fetchProfile = async () => {
-    try {
-      const res = await fetch("/api/auth/status");
-      const data = await res.json();
-      if (data.authenticated && data.user) {
-        const rawUser = data.user;
-        setProfile({
-          id: rawUser.userId || rawUser.id || "",
-          name: rawUser.name || "",
-          auraCoins: rawUser.auraCoins || 0,
-        });
-      }
-    } catch {}
-    setLoading(false);
-  };
+    if (sessionStatus === "authenticated" && session?.user) {
+      setProfile({
+        id: (session.user as any).id || "",
+        name: session.user.name || "",
+        auraCoins: (session.user as any).auraCoins || 0,
+      });
+      fetchReferralStats();
+      setLoading(false);
+    } else if (sessionStatus === "unauthenticated") {
+      setProfile(null);
+      setLoading(false);
+    }
+  }, [session, sessionStatus]);
 
   const fetchReferralStats = async () => {
     try {

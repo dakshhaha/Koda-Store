@@ -15,13 +15,19 @@ export async function GET(request: Request) {
     if (!id) return NextResponse.json({ error: "Missing ID." }, { status: 400 });
 
     const supportSession = await prisma.supportSession.findUnique({
-      where: { id }
+      where: { id },
+      include: {
+        chatMessages: {
+          orderBy: { createdAt: "asc" },
+          select: { role: true, content: true, isHuman: true, createdAt: true },
+        },
+      },
     });
 
     if (!supportSession) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
     return NextResponse.json({ 
-       messages: supportSession.messages,
+       chatMessages: supportSession.chatMessages,
        status: supportSession.status 
     });
   } catch {

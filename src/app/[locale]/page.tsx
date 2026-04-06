@@ -109,7 +109,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
               if (!imgSrc) {
                 const firstProduct = allProducts.find(p => p.categoryId === cat.id);
                 if (firstProduct) {
-                  try { imgSrc = JSON.parse(firstProduct.images || "[]")[0]; } catch {}
+                  try { imgSrc = ((firstProduct.images || []) as string[])[0]; } catch {}
                 }
               }
               // Hardcoded fallback for new categories without products like Decor
@@ -162,7 +162,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
           </div>
           <div className="grid grid-4">
             {featuredProducts.slice(0, 4).map((product, i) => {
-              const images = JSON.parse(product.images || "[]");
+              const images = (product.images || []) as string[];
               return (
                 <Link href={`/${locale}/products/${product.slug}`} key={product.id}>
                   <div className={`card animate-in animate-delay-${(i % 4) + 1}`}>
@@ -201,7 +201,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
             </div>
             <div className="grid grid-4">
               {dealProducts.map((product, i) => {
-                const images = JSON.parse(product.images || "[]");
+                const images = (product.images || []) as string[];
                 const discount = product.salePrice ? Math.round((1 - product.salePrice / product.price) * 100) : 0;
                 return (
                   <Link href={`/${locale}/products/${product.slug}`} key={product.id}>
@@ -238,7 +238,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
           </div>
           <div className="grid grid-4">
             {newArrivals.map((product, i) => {
-              const images = JSON.parse(product.images || "[]");
+              const images = (product.images || []) as string[];
               return (
                 <Link href={`/${locale}/products/${product.slug}`} key={product.id}>
                   <div className={`card animate-in animate-delay-${(i % 4) + 1}`}>
@@ -314,7 +314,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
             </div>
             <div className="grid grid-4">
               {bestSellers.map((product, i) => {
-                const images = JSON.parse(product.images || "[]");
+                const images = (product.images || []) as string[];
                 return (
                   <Link href={`/${locale}/products/${product.slug}`} key={product.id}>
                     <div className={`card animate-in animate-delay-${(i % 4) + 1}`}>
@@ -383,7 +383,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
           <div className="grid grid-4">
             {roomCollections.map((room, i) => {
               const product = room.product;
-              const images = JSON.parse(product?.images || "[]");
+              const images = (product?.images || []) as string[];
               return (
                 <Link href={product ? `/${locale}/products/${product.slug}` : `/${locale}/products`} key={room.title}>
                   <div className={`card animate-in animate-delay-${(i % 4) + 1}`}>
@@ -416,7 +416,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
           </div>
           <div className="grid grid-4">
             {allProducts.slice(0, 8).map((product, i) => {
-              const images = JSON.parse(product.images || "[]");
+              const images = (product.images || []) as string[];
               return (
                 <Link href={`/${locale}/products/${product.slug}`} key={product.id}>
                   <div className={`card animate-in animate-delay-${(i % 4) + 1}`}>

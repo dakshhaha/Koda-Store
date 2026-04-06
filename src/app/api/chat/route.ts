@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getAIProvider, type AIProviderName } from "@/lib/ai";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { sanitizeString } from "@/lib/validation";
 
 interface PersistedChatMessage {
   role: "user" | "assistant" | "system";
@@ -73,7 +75,7 @@ function summarizeCatalog(
     salePrice: number | null;
     description: string;
     slug: string;
-    images: string;
+    images: unknown;
     category: { name: string } | null;
   }>
 ): string {
@@ -84,11 +86,8 @@ function summarizeCatalog(
       const amount = product.salePrice ?? product.price;
       const regularPrice = product.salePrice ? ` (was ${product.price.toFixed(2)})` : "";
       const snippet = product.description.slice(0, 140);
-      let firstImage = "";
-      try {
-        const parsed = JSON.parse(product.images);
-        if (Array.isArray(parsed) && parsed.length > 0) firstImage = parsed[0];
-      } catch {}
+      const imageArr = Array.isArray(product.images) ? product.images : [];
+      const firstImage = (imageArr[0] as string) || "";
 
       return `- ${product.name} [ID:${product.id}] [Category:${product.category?.name || "General"}] Price:${amount.toFixed(2)}${regularPrice} | Slug:${product.slug} | Image:${firstImage} | ${snippet}`;
     })
@@ -156,12 +155,16 @@ export async function GET(request: Request) {
         where: { userId: userSession.userId },
         orderBy: { updatedAt: "desc" },
         take: 10,
-        select: { id: true, status: true, updatedAt: true, messages: true }
+        include: {
+          chatMessages: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+          },
+        },
       });
       
       const sessionList = sessions.map(s => {
-        const msgs = safeParseMessages(s.messages).filter(m => m.role !== "system");
-        const lastMsg = msgs[msgs.length - 1]?.content || "No messages yet";
+        const lastMsg = s.chatMessages[0]?.content || "No messages yet";
         return {
           id: s.id,
           status: s.status,
@@ -173,7 +176,14 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: true, sessions: sessionList });
     }
 
-    const supportSession = await prisma.supportSession.findUnique({ where: { id: sessionId } });
+    const supportSession = await prisma.supportSession.findUnique({
+      where: { id: sessionId },
+      include: {
+        chatMessages: {
+          orderBy: { createdAt: "asc" },
+        },
+      },
+    });
 
     if (!supportSession) {
       return NextResponse.json({
@@ -188,7 +198,12 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Forbidden." }, { status: 403 });
     }
 
-    const messages = safeParseMessages(supportSession.messages).filter((message) => message.role !== "system");
+    const messages = (supportSession.chatMessages || []).map((m) => ({
+      role: m.role,
+      content: m.content,
+      isHuman: m.isHuman,
+      timestamp: m.createdAt.toISOString(),
+    }));
 
     return NextResponse.json({
       success: true,
@@ -204,16 +219,36 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { messages, provider, sessionId } = await request.json();
+    // Rate limit: 20/min for anonymous, 40/min for authenticated
+    const clientIp = getClientIp(request);
     const userSession = await getSession();
+    const rateLimitKey = `chat:${userSession?.userId || clientIp}`;
+    const limit = userSession ? 40 : 20;
+    const rl = rateLimit(rateLimitKey, limit, 60_000);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again shortly." },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSeconds) } }
+      );
+    }
+
+    const { messages, provider, sessionId } = await request.json();
     const normalizedMessages = normalizeMessages(messages);
+
+    // Sanitize message content
+    for (const msg of normalizedMessages) {
+      msg.content = sanitizeString(msg.content, 4000);
+    }
 
     if (normalizedMessages.length === 0) {
       return NextResponse.json({ error: "Invalid messages array" }, { status: 400 });
     }
 
     const existingSupportSession = sessionId
-      ? await prisma.supportSession.findUnique({ where: { id: sessionId } })
+      ? await prisma.supportSession.findUnique({ 
+          where: { id: sessionId },
+          include: { chatMessages: { orderBy: { createdAt: "asc" } } }
+        })
       : null;
 
     if (existingSupportSession?.userId && userSession?.userId !== existingSupportSession.userId) {
@@ -232,7 +267,11 @@ export async function POST(request: Request) {
 
     if ((existingSupportSession?.status === "human_needed" || existingSupportSession?.status === "agent_active") && sessionId) {
       const waitingNotice = "A human support agent has taken over this chat. Please hold on while they reply.";
-      const existingMessages = safeParseMessages(existingSupportSession.messages).filter((message) => message.role !== "system");
+      const existingMessages = (existingSupportSession.chatMessages || []).map(m => ({
+        role: m.role,
+        content: m.content,
+        isHuman: m.isHuman
+      }));
       const waitingMessages = [...existingMessages];
 
       const latestUserEntry = [...normalizedMessages]
@@ -240,15 +279,18 @@ export async function POST(request: Request) {
         .find((message) => message.role === "user");
 
       if (latestUserEntry) {
-        const latestStored = waitingMessages[waitingMessages.length - 1];
+        const latestStored = existingSupportSession.chatMessages[existingSupportSession.chatMessages.length - 1];
         const isDuplicateUserMessage =
           latestStored?.role === "user" && latestStored.content.trim() === latestUserEntry.content.trim();
 
         if (!isDuplicateUserMessage) {
-          waitingMessages.push({
-            role: "user",
-            content: latestUserEntry.content,
-            timestamp: new Date().toISOString(),
+          await prisma.chatMessage.create({
+            data: {
+              sessionId: sessionId,
+              role: "user",
+              content: latestUserEntry.content,
+              isHuman: false
+            }
           });
         }
       }
@@ -256,10 +298,8 @@ export async function POST(request: Request) {
       await prisma.supportSession.update({
         where: { id: sessionId },
         data: {
-          messages: JSON.stringify(waitingMessages),
-          status: existingSupportSession?.status || "human_needed",
-          userId: existingSupportSession.userId || userSession?.userId || null,
           updatedAt: new Date(),
+          status: existingSupportSession?.status || "human_needed",
         },
       });
 
@@ -401,7 +441,7 @@ AI RULES:
     const aiProvider = getAIProvider(selectedProvider);
     let aiResponse = "";
     try {
-      aiResponse = await aiProvider.chat(enhancedMessages);
+      aiResponse = await aiProvider.chat(enhancedMessages, userSession?.userId);
     } catch (aiError) {
       console.error("AI provider error:", aiError);
       aiResponse = "I'm sorry, I'm having trouble connecting right now. Please try again or ask for a human agent.";
@@ -421,21 +461,10 @@ AI RULES:
       aiResponse = "I'd like to connect you to a human agent, but you must be logged in to access priority human support. Please log in or create an account, then ask me again!";
     }
 
-    if (sessionId) {
-      const fullMessages = [
-        ...normalizedMessages.filter((message) => message.role !== "system"),
-        {
-          role: "assistant" as const,
-          content: aiResponse,
-          timestamp: new Date().toISOString(),
-          isHuman: false,
-        },
-      ];
-
-      await prisma.supportSession.upsert({
+      // Create or update session, then persist messages as ChatMessage rows
+      const session = await prisma.supportSession.upsert({
         where: { id: sessionId },
         update: {
-          messages: JSON.stringify(fullMessages),
           status: finalStatus,
           userId: existingSupportSession?.userId || userSession?.userId || null,
           updatedAt: new Date(),
@@ -443,11 +472,20 @@ AI RULES:
         create: {
           id: sessionId,
           userId: userSession?.userId || null,
-          messages: JSON.stringify(fullMessages),
           status: finalStatus,
         },
       });
-    }
+
+      // Save the latest user message and AI response as ChatMessage rows
+      const latestMsg = normalizedMessages[normalizedMessages.length - 1];
+      if (latestMsg && latestMsg.role === "user") {
+        await prisma.chatMessage.create({
+          data: { sessionId: session.id, role: "user", content: latestMsg.content, isHuman: false },
+        });
+      }
+      await prisma.chatMessage.create({
+        data: { sessionId: session.id, role: "assistant", content: aiResponse, isHuman: false },
+      });
 
     return NextResponse.json({
       success: true,

@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { User, LogOut, ShoppingCart, Settings, Globe, ChevronDown, Coins } from "lucide-react";
+import { User, LogOut, ShoppingCart, Settings, Globe, ChevronDown, Coins, Gift } from "lucide-react";
 import { useCart } from "@/context/CartContext";
+import { signOut } from "next-auth/react";
 
 interface NavActionsProps {
   locale: string;
@@ -16,8 +17,22 @@ interface NavActionsProps {
 export default function NavActions({ locale, currency, session, user }: NavActionsProps) {
   const router = useRouter();
   const { cartCount } = useCart();
+  const [currentAura, setCurrentAura] = useState<number>(session?.auraCoins ?? user?.auraCoins ?? 0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (session) {
+      fetch("/api/user/profile")
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.auraCoins !== undefined) {
+            setCurrentAura(data.auraCoins);
+          }
+        })
+        .catch(err => console.error("Failed to sync aura coins:", err));
+    }
+  }, [session]);
 
   const clearCloseTimer = () => {
     if (dropdownTimerRef.current) {
@@ -44,7 +59,7 @@ export default function NavActions({ locale, currency, session, user }: NavActio
 
   const handleLogout = async () => {
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
+      await signOut({ redirect: false });
       setIsDropdownOpen(false);
       router.push(`/${locale}`);
       router.refresh();
@@ -55,11 +70,6 @@ export default function NavActions({ locale, currency, session, user }: NavActio
 
   return (
     <div className="nav-actions">
-      <div className="locale-badge" title={`Currency: ${currency}`}>
-        <Globe size={14} />
-        <span>{locale}</span>
-      </div>
-      
       <Link href={`/${locale}/cart`} className="btn btn-secondary cart-btn">
         <ShoppingCart size={18} />
         Cart {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
@@ -72,6 +82,9 @@ export default function NavActions({ locale, currency, session, user }: NavActio
         </div>
       ) : (
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <Link href={`/${locale}/referrals`} className="btn btn-secondary" style={{ fontSize: '0.8125rem', gap: '0.375rem' }}>
+            <Gift size={16} /> Invite & Earn
+          </Link>
           <div
             className="profile-menu"
             onMouseEnter={openDropdown}

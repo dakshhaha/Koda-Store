@@ -46,7 +46,7 @@ export default async function ProductsPage({
 
       <div className="grid grid-4">
         {products.map((product, i) => {
-          const images = JSON.parse(product.images || "[]");
+          const images = (product.images || []) as string[];
           const convertedPrice = convertUsdToCurrency(product.salePrice || product.price, currency);
           const convertedOldPrice = convertUsdToCurrency(product.price, currency);
           return (

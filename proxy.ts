@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { decrypt, SESSION_COOKIE_NAME } from "./src/lib/auth";
+import { getSession } from "./src/lib/auth";
 
 const PUBLIC_FILE = /\.(.*)$/;
 const SUPPORTED_LOCALES = ["en-US", "en-GB", "en-IN", "en-NG", "en-CA", "en-AU", "en-JP", "en-DE", "en-FR", "en-BR"];
@@ -57,11 +57,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // 2. AUTHENTICATION
-  const session = request.cookies.get(SESSION_COOKIE_NAME)?.value;
-  let user = null;
-  if (session) {
-    user = await decrypt(session);
-  }
+  const user = await getSession();
 
   const detectedCountry = detectCountry(request);
   const detectedLocale = COUNTRY_TO_LOCALE[detectedCountry] || "en-US";

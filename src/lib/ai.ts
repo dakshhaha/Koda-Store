@@ -1,3 +1,5 @@
+import { GEMINI_TOOLS, executeTool } from "@/lib/ai-tools";
+
 export type AIProviderName = "gemini" | "openrouter" | "openai" | "claude" | "grok";
 
 export interface ChatMessage {
@@ -7,15 +9,16 @@ export interface ChatMessage {
 
 export interface AIProvider {
   name: string;
-  chat: (messages: ChatMessage[]) => Promise<string>;
+  chat: (messages: ChatMessage[], userId?: string) => Promise<string>;
 }
 
 // =============================================================================
-// GEMINI PROVIDER
+// GEMINI PROVIDER (with tool calling)
 // =============================================================================
 export class GeminiProvider implements AIProvider {
   name = "gemini";
-  async chat(messages: ChatMessage[]) {
+
+  async chat(messages: ChatMessage[], userId?: string) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) throw new Error("GEMINI_API_KEY not configured");
 
@@ -29,6 +32,7 @@ export class GeminiProvider implements AIProvider {
 
     const body: Record<string, unknown> = {
       contents,
+      tools: GEMINI_TOOLS,
       generationConfig: {
         temperature: 0.7,
         maxOutputTokens: 2048,
@@ -57,7 +61,72 @@ export class GeminiProvider implements AIProvider {
     }
 
     const data = await response.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || "No response received";
+    const candidate = data.candidates?.[0];
+
+    if (!candidate) return "No response received";
+
+    // Check if the model wants to call a tool
+    const parts = candidate.content?.parts || [];
+    const functionCalls = parts.filter((p: Record<string, unknown>) => p.functionCall);
+
+    if (functionCalls.length > 0) {
+      // Execute all tool calls
+      const toolResults = [];
+      for (const fc of functionCalls) {
+        const call = fc.functionCall as { name: string; args: Record<string, unknown> };
+        console.log(`🔧 AI calling tool: ${call.name}`, call.args);
+        const result = await executeTool(call.name, call.args || {}, userId);
+        toolResults.push({
+          functionResponse: {
+            name: call.name,
+            response: { result },
+          },
+        });
+      }
+
+      // Send tool results back to the model for a natural language response
+      const followUpContents = [
+        ...contents,
+        { role: "model", parts: functionCalls },
+        { role: "user", parts: toolResults },
+      ];
+
+      const followUpBody: Record<string, unknown> = {
+        contents: followUpContents,
+        tools: GEMINI_TOOLS,
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 2048,
+        },
+      };
+
+      if (systemMessage) {
+        followUpBody.systemInstruction = {
+          parts: [{ text: systemMessage.content }],
+        };
+      }
+
+      const followUpResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(followUpBody),
+        }
+      );
+
+      if (!followUpResponse.ok) {
+        console.error("Gemini follow-up error:", await followUpResponse.text());
+        // Return tool results as formatted text as fallback
+        return toolResults.map(tr => tr.functionResponse.response.result).join("\n");
+      }
+
+      const followUpData = await followUpResponse.json();
+      return followUpData.candidates?.[0]?.content?.parts?.[0]?.text || "No response received";
+    }
+
+    // No tool calls — return text directly
+    return parts.find((p: Record<string, unknown>) => p.text)?.text || "No response received";
   }
 }
 
@@ -124,11 +193,11 @@ export class RobustAIProvider implements AIProvider {
   private gemini = new GeminiProvider();
   private openRouter = new OpenRouterProvider();
 
-  async chat(messages: ChatMessage[]) {
-    // 1. Try Gemini first
+  async chat(messages: ChatMessage[], userId?: string) {
+    // 1. Try Gemini first (with tool calling)
     try {
-      console.log("Attempting chat with Gemini...");
-      return await this.gemini.chat(messages);
+      console.log("Attempting chat with Gemini (tool-calling)...");
+      return await this.gemini.chat(messages, userId);
     } catch (geminiError) {
       console.error("Gemini failed, falling back to OpenRouter:", geminiError);
 
@@ -154,7 +223,7 @@ export class RobustAIProvider implements AIProvider {
               "X-Title": "Koda Store",
             },
             body: JSON.stringify({
-              model: "google/gemini-2.0-flash-lite-preview-02-05:free", // Example free model
+              model: "google/gemini-2.0-flash-lite-preview-02-05:free",
               messages: messages,
             }),
           });

@@ -42,9 +42,9 @@ export default function CartPage() {
                 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '1.5rem' }}>
                    <div style={{ display: 'flex', alignItems: 'center', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-full)', padding: '0.25rem' }}>
-                      <button className="btn btn-tertiary" style={{ padding: '0.25rem', minWidth: 'auto' }} onClick={() => addToCart(item, -1)} disabled={item.quantity <= 1}><Minus size={14} /></button>
+                      <button className="btn btn-tertiary" style={{ padding: '0.25rem', minWidth: 'auto' }} onClick={() => addToCart(item as unknown as Record<string, unknown>, -1)} disabled={item.quantity <= 1}><Minus size={14} /></button>
                       <span style={{ width: '30px', textAlign: 'center', fontWeight: 700, fontSize: '0.875rem' }}>{item.quantity}</span>
-                      <button className="btn btn-tertiary" style={{ padding: '0.25rem', minWidth: 'auto' }} onClick={() => addToCart(item, 1)}><Plus size={14} /></button>
+                      <button className="btn btn-tertiary" style={{ padding: '0.25rem', minWidth: 'auto' }} onClick={() => addToCart(item as unknown as Record<string, unknown>, 1)}><Plus size={14} /></button>
                    </div>
                    <button className="btn btn-tertiary" style={{ color: 'var(--error)', fontSize: '0.75rem' }} onClick={() => removeFromCart(item.id)}>
                       <Trash2 size={14} /> Remove

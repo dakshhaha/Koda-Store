@@ -47,7 +47,7 @@ export default function AdminProductEdit({ params }: { params: Promise<{ id: str
             stock: String(product.stock || 0),
             categoryId: product.categoryId || "",
             featured: Array.isArray(product.featured) ? product.featured[0] : (product.featured || false),
-            images: JSON.parse(product.images || "[]"),
+            images: (product.images || []) as string[],
           });
         }
 

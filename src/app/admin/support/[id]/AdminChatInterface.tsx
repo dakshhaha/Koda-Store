@@ -76,8 +76,8 @@ export default function AdminChatInterface({ sessionId, initialMessages, user, o
        try {
           const res = await fetch(`/api/admin/support/session?id=${sessionId}`);
           const data = await res.json();
-          if (data.messages) {
-             const newMsgs = JSON.parse(data.messages);
+          if (data.chatMessages) {
+             const newMsgs = data.chatMessages as Message[];
              if (newMsgs.length > messages.length) {
                 if (newMsgs[newMsgs.length - 1].role === "user") playNotificationSound();
                 setMessages(newMsgs);

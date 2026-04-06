@@ -10,6 +10,7 @@ import { headers } from "next/headers";
 import { CartProvider } from "@/context/CartContext";
 import SearchBar from "@/components/SearchBar";
 import { prisma } from "@/lib/prisma";
+import { AuthProvider } from "@/components/providers/AuthProvider";
 
 export const metadata: Metadata = {
   title: "Koda Store | The Editorial Marketplace",
@@ -26,13 +27,10 @@ export default async function RootLayout({
 
   if (session?.userId) {
     try {
-      // @ts-ignore
       const user = await prisma.user.findUnique({
         where: { id: session.userId },
-        // @ts-ignore
         select: { auraCoins: true },
       });
-      // @ts-ignore
       extendedSession = { ...session, auraCoins: user?.auraCoins || 0 };
     } catch {}
   }
@@ -77,76 +75,78 @@ export default async function RootLayout({
   return (
     <html lang={locale}>
       <body>
-        <CartProvider>
-          <AnnouncementBanner />
-          <header className="glass-nav">
-            <div className="container nav-inner">
-              <Link href={`/${locale}`} className="logo">
-                KODA<span className="logo-accent">STORE</span>
-              </Link>
+        <AuthProvider>
+          <CartProvider>
+            <AnnouncementBanner />
+            <header className="glass-nav">
+              <div className="container nav-inner">
+                <Link href={`/${locale}`} className="logo">
+                  KODA<span className="logo-accent">STORE</span>
+                </Link>
 
-              <nav className="nav-links">
-                <Link href={`/${locale}`} className="nav-link">Home</Link>
-                <Link href={`/${locale}/products`} className="nav-link">Shop</Link>
-                <Link href={`/${locale}/categories`} className="nav-link">Categories</Link>
-                <Link href={`/${locale}/orders`} className="nav-link">Orders</Link>
-                {(isAdmin || isSupport) && (
-                  <Link href={isSupport ? "/admin/support" : "/admin"} className="nav-link nav-link-admin">
-                    {isSupport ? "Support Panel" : "Admin Dashboard"}
-                  </Link>
-                )}
-              </nav>
+                <nav className="nav-links">
+                  <Link href={`/${locale}`} className="nav-link">Home</Link>
+                  <Link href={`/${locale}/products`} className="nav-link">Shop</Link>
+                  <Link href={`/${locale}/categories`} className="nav-link">Categories</Link>
+                  <Link href={`/${locale}/orders`} className="nav-link">Orders</Link>
+                  {(isAdmin || isSupport) && (
+                    <Link href={isSupport ? "/admin/support" : "/admin"} className="nav-link nav-link-admin">
+                      {isSupport ? "Support Panel" : "Admin Dashboard"}
+                    </Link>
+                  )}
+                </nav>
 
-              <div style={{ flex: 1, display: 'flex', justifyContent: 'center', margin: '0 2rem' }}>
-                 <SearchBar />
+                <div style={{ flex: 1, display: 'flex', justifyContent: 'center', margin: '0 2rem' }}>
+                   <SearchBar />
+                </div>
+
+                <NavActions session={extendedSession as any} locale={locale} currency={currency} />
+
+                <button className="mobile-menu-btn" id="mobile-menu-toggle" aria-label="Toggle menu">
+                  <span></span><span></span><span></span>
+                </button>
               </div>
+            </header>
 
-              <NavActions session={extendedSession as any} locale={locale} currency={currency} />
+            <main className="main-content">
+              {children}
+            </main>
 
-              <button className="mobile-menu-btn" id="mobile-menu-toggle" aria-label="Toggle menu">
-                <span></span><span></span><span></span>
-              </button>
-            </div>
-          </header>
+            <AIChatCard />
+            <MaintenanceChecker />
 
-          <main className="main-content">
-            {children}
-          </main>
-
-          <AIChatCard />
-          <MaintenanceChecker />
-
-          <footer className="site-footer">
-            <div className="container">
-              <div className="footer-grid">
-                <div className="footer-col">
-                  <h4 className="footer-heading">KODA<span className="logo-accent">STORE</span></h4>
-                  <p className="footer-text">A curated marketplace built on the philosophy of The Digital Curator. We present, not just list.</p>
+            <footer className="site-footer">
+              <div className="container">
+                <div className="footer-grid">
+                  <div className="footer-col">
+                    <h4 className="footer-heading">KODA<span className="logo-accent">STORE</span></h4>
+                    <p className="footer-text">A curated marketplace built on the philosophy of The Digital Curator. We present, not just list.</p>
+                  </div>
+                  <div className="footer-col">
+                    <h4 className="footer-heading">Quick Links</h4>
+                    <Link href={`/${locale}/products`} className="footer-link">Shop All</Link>
+                    <Link href={`/${locale}/categories`} className="footer-link">Categories</Link>
+                    <Link href={`/${locale}/orders`} className="footer-link">My Orders</Link>
+                  </div>
+                  <div className="footer-col">
+                    <h4 className="footer-heading">Support</h4>
+                    <Link href="#" className="footer-link">Contact Us</Link>
+                    <Link href="#" className="footer-link">Shipping Info</Link>
+                    <Link href="#" className="footer-link">Returns</Link>
+                  </div>
+                  <div className="footer-col">
+                    <h4 className="footer-heading">Legal</h4>
+                    <Link href="#" className="footer-link">Privacy Policy</Link>
+                    <Link href="#" className="footer-link">Terms of Service</Link>
+                  </div>
                 </div>
-                <div className="footer-col">
-                  <h4 className="footer-heading">Quick Links</h4>
-                  <Link href={`/${locale}/products`} className="footer-link">Shop All</Link>
-                  <Link href={`/${locale}/categories`} className="footer-link">Categories</Link>
-                  <Link href={`/${locale}/orders`} className="footer-link">My Orders</Link>
-                </div>
-                <div className="footer-col">
-                  <h4 className="footer-heading">Support</h4>
-                  <Link href="#" className="footer-link">Contact Us</Link>
-                  <Link href="#" className="footer-link">Shipping Info</Link>
-                  <Link href="#" className="footer-link">Returns</Link>
-                </div>
-                <div className="footer-col">
-                  <h4 className="footer-heading">Legal</h4>
-                  <Link href="#" className="footer-link">Privacy Policy</Link>
-                  <Link href="#" className="footer-link">Terms of Service</Link>
+                <div className="footer-bottom">
+                  <p>&copy; 2026 Koda Store. Built with The Digital Curator design philosophy.</p>
                 </div>
               </div>
-              <div className="footer-bottom">
-                <p>&copy; 2026 Koda Store. Built with The Digital Curator design philosophy.</p>
-              </div>
-            </div>
-          </footer>
-        </CartProvider>
+            </footer>
+          </CartProvider>
+        </AuthProvider>
       </body>
     </html>
   );

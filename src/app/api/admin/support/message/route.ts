@@ -23,19 +23,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Session not found." }, { status: 404 });
     }
 
-    const messages = JSON.parse(supportSession.messages || "[]");
-    messages.push({
-      role: "assistant",
-      content: content,
-      timestamp: new Date().toISOString(),
-      isHuman: true
+    // Create a ChatMessage row for the human agent's reply
+    await prisma.chatMessage.create({
+      data: {
+        sessionId: sessionId,
+        role: "assistant",
+        content: content,
+        isHuman: true,
+      }
     });
 
     await prisma.supportSession.update({
       where: { id: sessionId },
       data: {
-        messages: JSON.stringify(messages),
-        status: "agent_active" // Agent is now talking, customer can reply
+        status: "agent_active",
+        assignedAgentId: session.userId,
       }
     });
 

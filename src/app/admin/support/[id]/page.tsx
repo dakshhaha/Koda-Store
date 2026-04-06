@@ -27,14 +27,22 @@ export default async function AdminSupportSessionPage({
           },
           addresses: true
         }
-      }
+      },
+      chatMessages: {
+        orderBy: { createdAt: "asc" },
+      },
     }
   });
 
   if (!supportSession) return notFound();
 
-  const user = supportSession.user;
-  const messages = JSON.parse(supportSession.messages || "[]");
+  const user = supportSession.user as any;
+  const messages = (supportSession.chatMessages || []).map((m: any) => ({
+    role: m.role,
+    content: m.content,
+    isHuman: m.isHuman,
+    timestamp: m.createdAt instanceof Date ? m.createdAt.toISOString() : String(m.createdAt),
+  }));
 
   return (
     <div className="container section">
@@ -97,11 +105,18 @@ export default async function AdminSupportSessionPage({
 
           <div className="admin-card">
              <h3 style={{ fontSize: '0.875rem', textTransform: 'uppercase', marginBottom: '1.5rem' }}>Recent Orders</h3>
-             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {user?.orders.map(order => (
+             <div style={{ 
+               display: 'flex', 
+               flexDirection: 'column', 
+               gap: '1rem', 
+               maxHeight: '400px', 
+               overflowY: 'auto',
+               paddingRight: '0.5rem'
+             }}>
+                {user?.orders.map((order: any) => (
                    <div key={order.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8125rem', padding: '0.75rem', border: '1px solid var(--outline-variant)', borderRadius: 'var(--radius-sm)' }}>
                       <div>
-                        <p style={{ fontWeight: 700 }}>#{order.id.substring(0,8).toUpperCase()}</p>
+                        <p style={{ fontWeight: 700 }}>#{String(order.id).substring(0,8).toUpperCase()}</p>
                         <p style={{ opacity: 0.7, fontSize: '0.6875rem' }}>{new Date(order.createdAt).toLocaleDateString()}</p>
                       </div>
                       <div style={{ textAlign: 'right' }}>
