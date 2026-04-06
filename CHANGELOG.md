@@ -1,6 +1,26 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+ 
+## [0.3.0] - 2026-04-06
+
+### 📊 Performance Intelligence (Analytics)
+- **Live Sync**: Admin Analytics dashboard now tracks **live active sessions** using Prisma session monitoring.
+- **Dynamic Formatting**: Full **multi-currency support** in charts using `siteSettings` data and the `formatCurrency` utility.
+- **Custom Visuals**: Re-engineered Recharts visuals into a specialized "Operational Status Allocation" donut and "Revenue Growth Projection" area chart.
+
+### 🤖 AI Chat v0.3 (Stabilization)
+- **Multi-Channel Sync**: Implemented a **resilient polling-based recovery** pipeline. Background sync (`syncSession`) automatically catches up if the primary streaming connection fails.
+- **UX Refinement**: Removed "Sorry, I couldn't connect" flash-errors for transient timeouts; the UI now silently retries before notifying the user.
+- **Hydration Fix**: Resolved a critical React hydration error by replacing semantically restricted `<p>` wrappers with `<div>` in the message formatter.
+
+### 🛒 Persistent Cartesian
+- **State Synchronization**: Carts are now fully synchronized with the `Cart` and `CartItem` Prisma models for logged-in users, enabling cross-device persistence.
+- **Merge Logic**: Improved logic for merging local guest carts into the server-side Cartesian system during authentication.
+
+### 🛠️ Core Hardening
+- **Prisma Schema Fix**: Resolved `PrismaClientKnownRequestError` by applying missing `trackingNumber` column to the `Order` model.
+- **Analytics Resilience**: Implemented explicit field selection on heavy dashboard queries to prevent runtime overhead.
 
 ## [0.2.1] - 2026-04-06
 

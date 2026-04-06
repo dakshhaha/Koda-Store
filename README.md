@@ -10,16 +10,12 @@
 
 ---
 
-## 🚀 What's New in v0.3.0: Enterprise Core
-
-The "Stabilization & Security" milestone is here. Koda Store is now more secure, localized, and data-driven.
-
-- **📊 High-Performance Analytics**: A new Admin Dashboard using **Recharts** for real-time revenue, order trends, and product performance tracking.
-- **⚡ AI Stream Engine**: Upgraded the support agent to use **Server-Sent Events (SSE)**. Responses now stream token-by-token for zero perceived latency.
-- **🇮🇳 Global Reach (i18n)**: Native support for **Hindi and English**, with automatic locale detection and a dictionary-based translation system.
-- **🛡️ AI Moderation Layer**: Proactive regex and safety filtering for all AI interactions to prevent abuse and toxic inputs.
-- **📦 Advanced Logistics**: Live **Order Tracking** pages with dynamic **QR Code** generation for mobile-first customer experiences.
-- **🧩 Product Variants**: Full support for multi-SKU inventory (Size, Color, Price Overrides) in the persistent cart system.
+- **📊 Performance Intelligence**: A new Admin Dashboard using **Recharts** for real-time tracking of revenue, order trends, user growth, and **live active sessions**.
+- **🛒 Persistent Cartesian System**: A robust, database-backed shopping cart (`Prisma + PostgreSQL`) that ensures a seamless, cross-device shopping experience for authenticated users.
+- **⚡ Resilient Sync Engine**: Upgraded the Koda AI to a multi-channel synchronization pipeline. If a direct response fails, the assistant uses **background polling** to retrieve the answer, ensuring 100% uptime.
+- **🛡️ Security Hardening**: Implemented **Zod-based input validation**, CSRF protection on server actions, and proactive security headers for enterprise-grade protection.
+- **🧩 Dynamic Product Cards**: AI responses now dynamically inject **interactive product cards** directly into the chat stream, enabling one-click browsing.
+- **📦 Logistics 2.0**: Live order tracking with integrated **QR codes**, status-driven escalations, and automated support session handoffs.
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fdakshhaha%2FKoda-Store)
 
@@ -69,10 +65,16 @@ More than a chatbot, the Koda AI is a full-service assistant:
 - **Regional Resilience**: Smart gateway selection picks the best provider (Stripe/Razorpay) based on the user's currency and region.
 - **Sanitized Flow**: Comprehensive verification for Razorpay signatures and Stripe webhooks.
 
+### 🛒 Persistent Cartesian System
+- **Database Backup**: Carts are no longer just local-storage based; they are synchronized with the user's `Cart` and `CartItem` models.
+- **Cross-Device Flow**: Start shopping on mobile, finish on desktop—your items and variants follow you.
+- **Guest-to-User Merge**: Intelligent merge logic preserves guest carts during the sign-in/sign-up transition.
+
 ### 🎨 Design System: "Curated Light"
 - **Editorial Aesthetic**: A high-end, light-themed editorial brand identity using Burnt Ochre and Amber accents.
 - **Responsive Fluidity**: Optimized for mobile-first editorial browsing with smooth micro-animations.
 - **Glassmorphism**: Subtle structural elements in chat and navigation for a premium feel.
+- **Atomic Components**: A strict set of reusable UI tokens for consistent admin and storefront development.
 
 ---
 
