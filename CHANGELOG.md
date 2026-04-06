@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
  
+## [0.4.0] - 2026-04-06
+
+### ⚡ Hybrid Discovery Engine
+- **Traditional Search Route**: Launched `/search` with server-side fuzzy matching and category/price/sort filters.
+- **Improved Discoverability**: Re-routed global SearchBar to the high-performance search engine to complement AI-based discovery.
+
+### 🛡️ Distributed Stability (Rate Limiting)
+- **Upstash Redis Middleware**: Migrated global rate-limiting from in-memory maps to distributed Redis. This ensures consistency across Vercel deployments and multi-region scaling.
+- **Centralized Utility**: Refined `src/lib/rate-limit.ts` to be edge-compatible and robust against connection failures.
+
+### 📦 Public Order Transparency
+- **Tracking Portal**: New public `/track/[id]` route allowing customers to monitor delivery progress without logging in (shareable links).
+- **QR Handover**: Dynamic QR code generation for every order, enabling seamless status tracking on mobile devices.
+
+## [0.3.5] - 2026-04-06
+### Added
+- **Resilient AI sync**: Hardened the chat pipeline with background retry logic to handle transient LLM provider timeouts.
+
 ## [0.3.0] - 2026-04-06
 
 ### 📊 Performance Intelligence (Analytics)

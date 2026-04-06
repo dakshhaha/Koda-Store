@@ -12,7 +12,7 @@ export default function SearchBar() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!query.trim()) return;
-    router.push(`/${locale}/products?q=${encodeURIComponent(query)}`);
+    router.push(`/${locale}/search?q=${encodeURIComponent(query)}`);
   };
 
   return (

@@ -46,8 +46,7 @@ function detectCountry(request: NextRequest): string {
   return "US";
 }
 
-// Simple in-memory rate limiting for demonstration/dev
-const rateLimitMap = new Map<string, { count: number, resetAt: number }>();
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 export default auth(async (request) => {
   const { pathname } = request.nextUrl;
@@ -63,23 +62,18 @@ export default auth(async (request) => {
     return NextResponse.next();
   }
 
-  // Rate limiting for AI chat route
+  // 2. DISTRIBUTED RATE LIMITING (Upstash Redis)
+  // Protect AI chat and other sensitive endpoints from abuse
   if (pathname.startsWith("/api/chat")) {
-    const ip = request.headers.get("x-forwarded-for") || "static-client";
-    const now = Date.now();
-    const limitInfo = rateLimitMap.get(ip) || { count: 0, resetAt: now + 60000 };
+    const ip = getClientIp(request);
+    const rl = await rateLimit(`middleware:chat:${ip}`, 20, 60_000);
     
-    if (now > limitInfo.resetAt) {
-      limitInfo.count = 0;
-      limitInfo.resetAt = now + 60000;
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "Too many requests. Please wait a moment." }, 
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSeconds) } }
+      );
     }
-    
-    if (limitInfo.count >= 20) {
-      return NextResponse.json({ error: "Too many curation requests. Please wait a moment." }, { status: 429 });
-    }
-    
-    limitInfo.count++;
-    rateLimitMap.set(ip, limitInfo);
   }
 
   const detectedCountry = detectCountry(request);

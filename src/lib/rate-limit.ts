@@ -3,6 +3,7 @@ import { Redis } from "@upstash/redis";
 /**
  * Optimized Rate Limiting Utility.
  * Supports Upstash Redis for distributed scaling, or In-Memory fallback for local development.
+ * Edge-compatible (no setInterval).
  */
 
 interface RateLimitEntry {
@@ -10,27 +11,20 @@ interface RateLimitEntry {
   resetAt: number;
 }
 
+// In-memory fallback (limited lifetime in Edge runtime)
 const memoryStore = new Map<string, RateLimitEntry>();
-let redis: Redis | null = null;
 
-// Initialize Redis only if keys are present
-if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
-  redis = new Redis({
-    url: process.env.UPSTASH_REDIS_REST_URL,
-    token: process.env.UPSTASH_REDIS_REST_TOKEN,
-  });
-  console.log("RateLimit: Distributed Upstash Redis enabled.");
+function getRedisClient() {
+  if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+    return new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    });
+  }
+  return null;
 }
 
-// Cleanup memory store every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, entry] of memoryStore) {
-    if (entry.resetAt < now) {
-      memoryStore.delete(key);
-    }
-  }
-}, 5 * 60 * 1000);
+const redis = getRedisClient();
 
 export interface RateLimitResult {
   allowed: boolean;
@@ -43,29 +37,28 @@ export interface RateLimitResult {
  * Check if a request is rate-limited.
  * @param key - Unique identifier (e.g., IP + endpoint)
  * @param limit - Max requests allowed in the window
- * @param windowMs - Time window in milliseconds
+ * @param windowMs - Time window in milliseconds (default 1 minute)
  */
 export async function rateLimit(
   key: string,
   limit: number,
-  windowMs: number
+  windowMs: number = 60_000
 ): Promise<RateLimitResult> {
   const now = Date.now();
   const fullKey = `ratelimit:${key}`;
 
-  // DISTRIBUTED REDIS FLOW
+  // 1. DISTRIBUTED REDIS FLOW (Primary)
   if (redis) {
     try {
-      const results = await redis
+      // Use a single pipeline for atomic-ish increment and TTL retrieval
+      const [count, pttl] = await redis
         .pipeline()
         .incr(fullKey)
         .pttl(fullKey)
-        .exec();
+        .exec() as [number, number];
 
-      const count = results[0] as number;
-      const pttl = results[1] as number;
-
-      if (count === 1) {
+      // If this is the first request in the window, set the expiration
+      if (count === 1 || pttl < 0) {
         await redis.pexpire(fullKey, windowMs);
       }
 
@@ -80,12 +73,18 @@ export async function rateLimit(
         retryAfterSeconds,
       };
     } catch (error) {
-      console.warn("RateLimit: Redis failure, falling back to Memory.", error);
+      console.warn("RateLimit: Upstash connection failed, falling back to In-Memory.", error);
     }
   }
 
-  // IN-MEMORY FALLBACK
+  // 2. IN-MEMORY FALLBACK (For Local Dev or Redis Outage)
   const existing = memoryStore.get(key);
+
+  // Simple cleanup: if memory storage exceeds 1000 items, clear oldest entries
+  if (memoryStore.size > 1000) {
+    const firstKey = memoryStore.keys().next().value;
+    if (firstKey) memoryStore.delete(firstKey);
+  }
 
   if (!existing || existing.resetAt < now) {
     memoryStore.set(key, { count: 1, resetAt: now + windowMs });
@@ -117,14 +116,17 @@ export async function rateLimit(
 }
 
 /**
- * Extracts client IP from request headers.
+ * Extracts client IP from request headers correctly.
  */
-export function getClientIp(request: Request): string {
-  const headers = new Headers(request.headers);
-  return (
-    headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    headers.get("x-real-ip") ||
-    headers.get("cf-connecting-ip") ||
-    "127.0.0.1"
-  );
+export function getClientIp(request: Request | NextRequest): string {
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0].trim();
+  
+  const realIp = request.headers.get("x-real-ip");
+  if (realIp) return realIp;
+
+  return "127.0.0.1";
 }
+
+// Support NextRequest type without explicit dependency if possible, or just cast
+type NextRequest = any;
