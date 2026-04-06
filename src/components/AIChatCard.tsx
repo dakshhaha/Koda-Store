@@ -197,8 +197,17 @@ export default function AIChatCard() {
       await syncSession();
     } catch (err: any) {
       console.warn("Chat POST failed, but background sync will retry:", err);
-      // Only show error if we don't have an assistant response yet for the last user message
-      setError("I'm having trouble connecting directly, but I'm still trying in the background...");
+      // Wait a moment for background sync to try before showing error
+      setTimeout(async () => {
+        await syncSession();
+        setMessages(prev => {
+          // If the last message is still the user message (no assistant response came through sync)
+          if (prev[prev.length - 1].role === "user") {
+            setError("I'm having trouble connecting directly, but I'm still trying in the background...");
+          }
+          return prev;
+        });
+      }, 2000);
     } finally {
       setLoading(false);
     }
@@ -291,7 +300,7 @@ export default function AIChatCard() {
         } else currentList.items.push(item);
       } else {
         if (currentList) { elements.push(flushList(currentList)); currentList = null; }
-        elements.push(<p key={i} style={{ marginBottom: i < lines.length - 1 ? '0.5rem' : 0 }}>{parseInlineStyles(line)}</p>);
+        elements.push(<div key={i} style={{ marginBottom: i < lines.length - 1 ? '0.5rem' : 0, display: 'block' }}>{parseInlineStyles(line)}</div>);
       }
     }
     if (currentList) elements.push(flushList(currentList));
