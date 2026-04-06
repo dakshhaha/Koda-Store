@@ -1,278 +1,191 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import {
-  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+import { useEffect, useState } from "react";
+import { 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+  PieChart, Pie, Cell, Legend
 } from "recharts";
-import { TrendingUp, DollarSign, Users, ShoppingBag, Package, ArrowUpRight, ArrowDownRight, Loader2 } from "lucide-react";
+import { TrendingUp, ShoppingBag, DollarSign, Users, Activity } from "lucide-react";
+import { getAnalyticsData } from "./actions";
+import { formatCurrency } from "@/lib/currency";
 
-interface AnalyticsData {
-  revenue: Array<{ day: string; label: string; revenue: number; count: number }>;
-  statusDistribution: Array<{ status: string; count: number }>;
-  topProducts: Array<{ name: string; slug: string; totalQuantity: number; orderCount: number }>;
-  customerGrowth: Array<{ day: string; label: string; newCustomers: number; cumulative: number }>;
-  totals: {
-    totalRevenue: number;
-    totalOrders: number;
-    totalCustomers: number;
-    totalProducts: number;
-    recentRevenue: number;
-    recentOrders: number;
-  };
-}
-
-const STATUS_COLORS: Record<string, string> = {
-  pending: "#f59e0b",
-  confirmed: "#3b82f6",
-  processing: "#8b5cf6",
-  shipped: "#06b6d4",
-  delivered: "#16a34a",
-  cancelled: "#ef4444",
-  refunded: "#6b7280",
-};
-
-const PIE_COLORS = ["#f59e0b", "#3b82f6", "#8b5cf6", "#06b6d4", "#16a34a", "#ef4444", "#6b7280", "#ec4899"];
+const COLORS = ["#643900", "#004a57", "#535f70", "#ba1a1a", "#854d00"];
 
 export default function AnalyticsPage() {
-  const [data, setData] = useState<AnalyticsData | null>(null);
+  const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
   useEffect(() => {
-    fetchAnalytics();
+    async function load() {
+      try {
+        const result = await getAnalyticsData();
+        setData(result);
+      } catch (err) {
+        console.error("Analytics fetch failed:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
   }, []);
 
-  const fetchAnalytics = async () => {
-    try {
-      const res = await fetch("/api/admin/analytics");
-      if (!res.ok) throw new Error("Failed to fetch");
-      const json = await res.json();
-      setData(json);
-    } catch (err) {
-      setError("Failed to load analytics data.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh", gap: "0.75rem" }}>
-        <Loader2 size={24} className="spin" />
-        <span style={{ color: "var(--on-surface-variant)" }}>Loading analytics...</span>
-      </div>
-    );
-  }
-
-  if (error || !data) {
-    return (
-      <div style={{ textAlign: "center", padding: "4rem 2rem", color: "var(--on-surface-variant)" }}>
-        <p>{error || "No data available."}</p>
-      </div>
-    );
-  }
-
-  const { totals } = data;
+  if (loading) return <div className="admin-card" style={{ textAlign: 'center', padding: '5rem' }}>Loading Performance Data...</div>;
+  if (!data) return <div className="admin-card" style={{ textAlign: 'center', padding: '5rem', color: 'var(--error)' }}>Failed to load analytics engine.</div>;
 
   return (
-    <div>
-      <div style={{ marginBottom: "2rem" }}>
-        <h1 style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>Analytics</h1>
-        <p style={{ color: "var(--on-surface-variant)", fontSize: "0.9375rem" }}>
-          Store performance over the last 30 days
-        </p>
+    <div className="admin-main" style={{ padding: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div>
+          <h1 style={{ fontSize: '2rem', marginBottom: '0.25rem' }}>Performance Intelligence</h1>
+          <p style={{ color: 'var(--on-surface-variant)' }}>Real-time revenue, growth, and audience metrics.</p>
+        </div>
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '0.5rem', 
+          padding: '0.5rem 1rem', 
+          backgroundColor: 'var(--surface-container-high)', 
+          color: 'var(--primary)', 
+          borderRadius: 'var(--radius-full)', 
+          fontSize: '0.75rem', 
+          fontWeight: 700,
+          border: '1px solid var(--outline-variant)'
+        }}>
+          <Activity size={14} /> LIVE DATA SYNC
+        </div>
       </div>
 
       {/* KPI Cards */}
-      <div className="admin-stat-grid" style={{ marginBottom: "2rem" }}>
+      <div className="admin-stat-grid" style={{ marginBottom: '2.5rem' }}>
         <div className="stat-card">
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <p className="stat-label">Total Revenue</p>
-            <DollarSign size={18} style={{ color: "var(--primary)", opacity: 0.6 }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+            <div className="stat-label">Total Revenue</div>
+            <div style={{ color: 'var(--primary)', opacity: 0.7 }}><DollarSign size={18} /></div>
           </div>
-          <div className="stat-value">${totals.totalRevenue.toFixed(2)}</div>
-          <p className="stat-change">
-            <span style={{ color: "#16a34a", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
-              <ArrowUpRight size={14} />
-              ${totals.recentRevenue.toFixed(2)}
-            </span>{" "}
-            last 30 days
-          </p>
+          <div className="stat-value">{formatCurrency(data.totals.revenue, data.currency)}</div>
+          <div className="stat-change positive">Store cumulative total</div>
         </div>
+
         <div className="stat-card">
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <p className="stat-label">Orders</p>
-            <ShoppingBag size={18} style={{ color: "var(--primary)", opacity: 0.6 }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+            <div className="stat-label">Total Orders</div>
+            <div style={{ color: 'var(--tertiary)', opacity: 0.7 }}><ShoppingBag size={18} /></div>
           </div>
-          <div className="stat-value">{totals.totalOrders}</div>
-          <p className="stat-change">{totals.recentOrders} in last 30 days</p>
+          <div className="stat-value">{data.totals.orders}</div>
+          <div className="stat-change positive">Success & Pending combined</div>
         </div>
+
         <div className="stat-card">
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <p className="stat-label">Customers</p>
-            <Users size={18} style={{ color: "var(--primary)", opacity: 0.6 }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+            <div className="stat-label">Avg. Ticket Size</div>
+            <div style={{ color: 'var(--secondary)', opacity: 0.7 }}><TrendingUp size={18} /></div>
           </div>
-          <div className="stat-value">{totals.totalCustomers}</div>
-          <p className="stat-change">Registered accounts</p>
+          <div className="stat-value">{formatCurrency(data.totals.avgOrder, data.currency)}</div>
+          <div className="stat-change">Weighted mean</div>
         </div>
+
         <div className="stat-card">
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <p className="stat-label">Products</p>
-            <Package size={18} style={{ color: "var(--primary)", opacity: 0.6 }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+            <div className="stat-label">Active Presence</div>
+            <div style={{ color: 'var(--error)', opacity: 0.7 }}><Users size={18} /></div>
           </div>
-          <div className="stat-value">{totals.totalProducts}</div>
-          <p className="stat-change">In catalog</p>
+          <div className="stat-value">{data.totals.activeUsers}</div>
+          <div className="stat-change positive">Live sessions / {data.totals.totalUsers} total users</div>
         </div>
       </div>
 
-      {/* Revenue Chart */}
-      <div className="admin-card" style={{ marginBottom: "1.5rem" }}>
-        <h2 style={{ fontSize: "1.125rem", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <TrendingUp size={18} /> Revenue Trend (30 Days)
-        </h2>
-        <div style={{ width: "100%", height: 320 }}>
-          <ResponsiveContainer>
-            <AreaChart data={data.revenue} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--outline-variant)" opacity={0.3} />
-              <XAxis
-                dataKey="label"
-                tick={{ fontSize: 11, fill: "var(--on-surface-variant)" }}
-                tickLine={false}
-                axisLine={false}
-                interval={4}
-              />
-              <YAxis
-                tick={{ fontSize: 11, fill: "var(--on-surface-variant)" }}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(v: number) => `$${v}`}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: "var(--surface-container)",
-                  border: "1px solid var(--outline-variant)",
-                  borderRadius: "12px",
-                  fontSize: "0.8125rem",
-                  boxShadow: "var(--shadow-md)",
-                }}
-                formatter={((value: unknown) => [`$${Number(value ?? 0).toFixed(2)}`, "Revenue"]) as never}
-              />
-              <Area type="monotone" dataKey="revenue" stroke="var(--primary)" strokeWidth={2} fill="url(#revenueGrad)" />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Two-column: Status Pie + Top Products Bar */}
-      <div className="grid grid-2" style={{ marginBottom: "1.5rem", gap: "1.5rem" }}>
-        {/* Order Status Distribution */}
-        <div className="admin-card" style={{ marginBottom: 0 }}>
-          <h2 style={{ fontSize: "1.125rem", marginBottom: "1rem" }}>Order Status</h2>
-          {data.statusDistribution.length > 0 ? (
-            <div style={{ width: "100%", height: 280 }}>
-              <ResponsiveContainer>
-                <PieChart>
-                  <Pie
-                    data={data.statusDistribution}
-                    dataKey="count"
-                    nameKey="status"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={90}
-                    innerRadius={50}
-                    paddingAngle={3}
-                    label={({ name, value }: { name?: string; value?: number }) => `${name} (${value})`}
-                    labelLine={false}
-                  >
-                    {data.statusDistribution.map((entry, i) => (
-                      <Cell
-                        key={entry.status}
-                        fill={STATUS_COLORS[entry.status] || PIE_COLORS[i % PIE_COLORS.length]}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      background: "var(--surface-container)",
-                      border: "1px solid var(--outline-variant)",
-                      borderRadius: "12px",
-                      fontSize: "0.8125rem",
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <p style={{ color: "var(--on-surface-variant)", textAlign: "center", padding: "2rem" }}>No orders yet</p>
-          )}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '2rem', gridAutoFlow: 'dense' }}>
+        {/* Revenue Growth - Desktop 2/3 */}
+        <div className="admin-card" style={{ gridColumn: 'span 1' }}>
+          <h3 style={{ fontSize: '1.125rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <TrendingUp size={20} color="var(--primary)" /> Revenue Growth Projection
+          </h3>
+          <div style={{ height: '350px', width: '100%' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={data.dailyData}>
+                <defs>
+                  <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.15}/>
+                    <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--outline-variant)" opacity={0.2} />
+                <XAxis 
+                  dataKey="date" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{fill: 'var(--on-surface-variant)', fontSize: 11, fontWeight: 500}} 
+                />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{fill: 'var(--on-surface-variant)', fontSize: 11, fontWeight: 500}} 
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    borderRadius: 'var(--radius-lg)', 
+                    border: '1px solid var(--outline-variant)', 
+                    boxShadow: 'var(--shadow-md)',
+                    backgroundColor: 'var(--surface-container-lowest)',
+                    fontSize: '12px'
+                  }}
+                  itemStyle={{ fontWeight: 800, color: 'var(--primary)' }}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="revenue" 
+                  stroke="var(--primary)" 
+                  strokeWidth={3}
+                  fillOpacity={1} 
+                  fill="url(#colorRev)" 
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         </div>
 
-        {/* Top Products */}
-        <div className="admin-card" style={{ marginBottom: 0 }}>
-          <h2 style={{ fontSize: "1.125rem", marginBottom: "1rem" }}>Top Products</h2>
-          {data.topProducts.length > 0 ? (
-            <div style={{ width: "100%", height: 280 }}>
-              <ResponsiveContainer>
-                <BarChart data={data.topProducts} layout="vertical" margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--outline-variant)" opacity={0.3} horizontal={false} />
-                  <XAxis type="number" tick={{ fontSize: 11, fill: "var(--on-surface-variant)" }} tickLine={false} axisLine={false} />
-                  <YAxis
-                    type="category"
-                    dataKey="name"
-                    width={120}
-                    tick={{ fontSize: 11, fill: "var(--on-surface-variant)" }}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: "var(--surface-container)",
-                      border: "1px solid var(--outline-variant)",
-                      borderRadius: "12px",
-                      fontSize: "0.8125rem",
-                    }}
-                  />
-                  <Bar dataKey="totalQuantity" name="Units Sold" fill="var(--primary)" radius={[0, 6, 6, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <p style={{ color: "var(--on-surface-variant)", textAlign: "center", padding: "2rem" }}>No product data yet</p>
-          )}
+        {/* Order Allocation */}
+        <div className="admin-card">
+          <h3 style={{ fontSize: '1.125rem', marginBottom: '1.5rem' }}>Operational Status Allocation</h3>
+          <div style={{ height: '300px', width: '100%' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={data.statusData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={70}
+                  outerRadius={90}
+                  paddingAngle={8}
+                  cornerRadius={4}
+                  dataKey="value"
+                >
+                  {data.statusData.map((_entry: any, index: number) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  contentStyle={{ 
+                    borderRadius: 'var(--radius-md)', 
+                    border: 'none', 
+                    boxShadow: 'var(--shadow-sm)',
+                    fontSize: '12px'
+                  }} 
+                />
+                <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
-
-      {/* Customer Growth Chart */}
-      <div className="admin-card">
-        <h2 style={{ fontSize: "1.125rem", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <Users size={18} /> Customer Growth (30 Days)
-        </h2>
-        <div style={{ width: "100%", height: 280 }}>
-          <ResponsiveContainer>
-            <BarChart data={data.customerGrowth} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--outline-variant)" opacity={0.3} />
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--on-surface-variant)" }} tickLine={false} axisLine={false} interval={4} />
-              <YAxis tick={{ fontSize: 11, fill: "var(--on-surface-variant)" }} tickLine={false} axisLine={false} allowDecimals={false} />
-              <Tooltip
-                contentStyle={{
-                  background: "var(--surface-container)",
-                  border: "1px solid var(--outline-variant)",
-                  borderRadius: "12px",
-                  fontSize: "0.8125rem",
-                }}
-              />
-              <Bar dataKey="newCustomers" name="New Customers" fill="#16a34a" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+      
+      <style jsx global>{`
+        @media (min-width: 1024px) {
+          .admin-main > div:nth-child(3) {
+            grid-template-columns: 2fr 1fr !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

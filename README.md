@@ -10,15 +10,41 @@
 
 ---
 
-## 🌟 Key Features (v0.2)
+## 🚀 What's New in v0.3.0: Enterprise Core
 
-* **⚡ Cutting-Edge Stack**: Next.js 16 (Turbopack), React 19, Tailwind CSS v4, and Prisma 7.
-* **🛡️ Auth.js v5 Ecosystem**: Secure, modern session management replacing legacy JWT systems.
-* **🤖 Advanced AI Support**: Tool-calling agent with vector-based RAG (pgvector) for ultra-precise customer assistance and product recommendations.
-* **💰 Aura Rewards & Referrals**: Sophisticated growth engine with dual-stage rewards (Signup + Delivery) and real-time database synchronization.
-* **🌍 Global Optimization**: Automatic IP-based localization, real-time currency conversion, and regional pricing.
-* **💳 Unified Payment Gateway**: Robust support for Stripe, Razorpay, and COD, including seamless COD-to-Online payment conversion.
-* **🛠️ Enterprise Admin Suite**: Comprehensive control over inventory, orders, user roles, support sessions (now with scrollable history), and site configuration.
+The "Stabilization & Security" milestone is here. Koda Store is now more secure, localized, and data-driven.
+
+- **📊 High-Performance Analytics**: A new Admin Dashboard using **Recharts** for real-time revenue, order trends, and product performance tracking.
+- **⚡ AI Stream Engine**: Upgraded the support agent to use **Server-Sent Events (SSE)**. Responses now stream token-by-token for zero perceived latency.
+- **🇮🇳 Global Reach (i18n)**: Native support for **Hindi and English**, with automatic locale detection and a dictionary-based translation system.
+- **🛡️ AI Moderation Layer**: Proactive regex and safety filtering for all AI interactions to prevent abuse and toxic inputs.
+- **📦 Advanced Logistics**: Live **Order Tracking** pages with dynamic **QR Code** generation for mobile-first customer experiences.
+- **🧩 Product Variants**: Full support for multi-SKU inventory (Size, Color, Price Overrides) in the persistent cart system.
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fdakshhaha%2FKoda-Store)
+
+---
+
+## 🖼️ Visual Experience
+
+````carousel
+![AI Support Chat](public/images/ai_chat.png)
+<!-- slide -->
+![Admin Analytics Dashboard](public/images/admin_dashboard.png)
+<!-- slide -->
+![Aura Rewards & Referrals](public/images/rewards_dashboard.png)
+````
+
+---
+
+## 🧠 How Koda Agent Works (RAG + Tool-Calling)
+
+The Koda AI Assistant is built on a "Reason-Act" architecture, allowing it to move beyond simple chat and into real-time store operations:
+
+1. **Semantic Search (RAG)**: When a user asks about products, the system converts the query into a vector using Gemini's `text-embedding-004`. It then performs a cosine similarity search against the `ProductEmbedding` table in PostgreSQL.
+2. **Dynamic Tool-Calling**: Koda has access to a suite of internal "tools" (server actions). If a user asks "Where is my order?", the agent autonomously identifies the need for the `lookupOrder` tool and fetches live data from Prisma.
+3. **Contextual Memory**: Unlike basic bots, Koda retains short-term session memory backed by `SupportSession` and `ChatMessage` models, allowing for complex multi-turn support.
+4. **Human Handoff**: If the sentiment analysis detects frustration or a request for a "real person," Koda transitions the session to `human_needed` status, notifying agents in the Admin Portal.
 
 ---
 

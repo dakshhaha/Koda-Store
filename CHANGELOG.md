@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.1] - 2026-04-06
+
+### 🛡️ Security & Performance
+- **Redis Rate Limiting**: Migrated in-memory rate limiting to **Upstash Redis** for multi-instance scalability on `/api/chat`.
+- **Lower Limits**: Reduced AI chat limits (8/min auth, 3/min anon) to optimize LLM costs and prevent abuse.
+- **Zod Validation**: Replaced manual property checks with strict **Zod schemas** in `/api/auth/signup` and `/api/admin/settings`.
+- **Hardened Headers**: Added `X-XSS-Protection` and refined CSP in `next.config.ts`.
+
+### 📖 Documentation & UX
+- **UI Visualizations**: Added professional shots of the AI Chat, Admin Dashboard, and Rewards engine to the README.
+- **Agent Architecture**: New "How Koda Agent Works" section detailing the RAG + Tool-calling logic.
+- **Vercel Integration**: Added "Deploy to Vercel" one-click button for instant community testing.
+
 ## [0.2.0] - 2026-04-06
 
 ### 🤖 AI / Agent (Phase 1)

@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 const { auth } = NextAuth(authConfig);
 
 const PUBLIC_FILE = /\.(.*)$/;
-const SUPPORTED_LOCALES = ["en-US", "en-GB", "en-IN", "en-NG", "en-CA", "en-AU", "en-JP", "en-DE", "en-FR", "en-BR"];
+const SUPPORTED_LOCALES = ["en-US", "hi-IN", "en-GB", "en-IN", "en-NG", "en-CA", "en-AU", "en-JP", "en-DE", "en-FR", "en-BR"];
 
 // Map country codes from IP geolocation to locales
 const COUNTRY_TO_LOCALE: Record<string, string> = {

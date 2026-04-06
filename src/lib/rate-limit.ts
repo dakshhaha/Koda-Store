@@ -1,7 +1,8 @@
+import { Redis } from "@upstash/redis";
+
 /**
- * In-memory sliding window rate limiter.
- * Simple Map-based implementation — no Redis needed.
- * For production with multiple instances, swap with Redis.
+ * Optimized Rate Limiting Utility.
+ * Supports Upstash Redis for distributed scaling, or In-Memory fallback for local development.
  */
 
 interface RateLimitEntry {
@@ -9,14 +10,24 @@ interface RateLimitEntry {
   resetAt: number;
 }
 
-const store = new Map<string, RateLimitEntry>();
+const memoryStore = new Map<string, RateLimitEntry>();
+let redis: Redis | null = null;
 
-// Cleanup stale entries every 5 minutes
+// Initialize Redis only if keys are present
+if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+  redis = new Redis({
+    url: process.env.UPSTASH_REDIS_REST_URL,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN,
+  });
+  console.log("RateLimit: Distributed Upstash Redis enabled.");
+}
+
+// Cleanup memory store every 5 minutes
 setInterval(() => {
   const now = Date.now();
-  for (const [key, entry] of store) {
+  for (const [key, entry] of memoryStore) {
     if (entry.resetAt < now) {
-      store.delete(key);
+      memoryStore.delete(key);
     }
   }
 }, 5 * 60 * 1000);
@@ -34,17 +45,50 @@ export interface RateLimitResult {
  * @param limit - Max requests allowed in the window
  * @param windowMs - Time window in milliseconds
  */
-export function rateLimit(
+export async function rateLimit(
   key: string,
   limit: number,
   windowMs: number
-): RateLimitResult {
+): Promise<RateLimitResult> {
   const now = Date.now();
-  const existing = store.get(key);
+  const fullKey = `ratelimit:${key}`;
+
+  // DISTRIBUTED REDIS FLOW
+  if (redis) {
+    try {
+      const results = await redis
+        .pipeline()
+        .incr(fullKey)
+        .pttl(fullKey)
+        .exec();
+
+      const count = results[0] as number;
+      const pttl = results[1] as number;
+
+      if (count === 1) {
+        await redis.pexpire(fullKey, windowMs);
+      }
+
+      const resetAt = now + (pttl > 0 ? pttl : windowMs);
+      const allowed = count <= limit;
+      const retryAfterSeconds = allowed ? 0 : Math.ceil((resetAt - now) / 1000);
+
+      return {
+        allowed,
+        remaining: Math.max(0, limit - count),
+        resetAt,
+        retryAfterSeconds,
+      };
+    } catch (error) {
+      console.warn("RateLimit: Redis failure, falling back to Memory.", error);
+    }
+  }
+
+  // IN-MEMORY FALLBACK
+  const existing = memoryStore.get(key);
 
   if (!existing || existing.resetAt < now) {
-    // New window
-    store.set(key, { count: 1, resetAt: now + windowMs });
+    memoryStore.set(key, { count: 1, resetAt: now + windowMs });
     return {
       allowed: true,
       remaining: limit - 1,
@@ -54,7 +98,6 @@ export function rateLimit(
   }
 
   if (existing.count >= limit) {
-    // Rate limited
     const retryAfterSeconds = Math.ceil((existing.resetAt - now) / 1000);
     return {
       allowed: false,
@@ -64,7 +107,6 @@ export function rateLimit(
     };
   }
 
-  // Increment counter
   existing.count++;
   return {
     allowed: true,
@@ -75,8 +117,7 @@ export function rateLimit(
 }
 
 /**
- * Extract client IP from request headers.
- * Works with Vercel, Cloudflare, and standard proxies.
+ * Extracts client IP from request headers.
  */
 export function getClientIp(request: Request): string {
   const headers = new Headers(request.headers);
@@ -84,6 +125,6 @@ export function getClientIp(request: Request): string {
     headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     headers.get("x-real-ip") ||
     headers.get("cf-connecting-ip") ||
-    "unknown"
+    "127.0.0.1"
   );
 }

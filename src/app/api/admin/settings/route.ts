@@ -27,6 +27,20 @@ function normalizeHiddenGateways(input: unknown): string[] {
   return [];
 }
 
+import { z } from "zod";
+import { fromError } from "zod-validation-error";
+
+const SettingsSchema = z.object({
+  storeName: z.string().min(2).optional(),
+  paymentGateway: z.enum(SUPPORTED_GATEWAYS as [string, ...string[]]).optional(),
+  aiProvider: z.enum(SUPPORTED_AI_PROVIDERS as [string, ...string[]]).optional(),
+  currency: z.string().length(3).optional(),
+  taxRate: z.number().min(0).max(100).optional(),
+  hiddenGateways: z.union([z.string(), z.array(z.string())]).optional(),
+  maintenanceMode: z.boolean().optional(),
+  maintenanceMessage: z.string().optional(),
+});
+
 // GET - Fetch current settings from database
 export async function GET() {
   try {
@@ -92,24 +106,25 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { paymentGateway, aiProvider, storeName, currency, taxRate, hiddenGateways, maintenanceMode, maintenanceMessage } = body;
+    const result = SettingsSchema.safeParse(body);
+
+    if (!result.success) {
+      const validationError = fromError(result.error);
+      return NextResponse.json({ error: validationError.toString() }, { status: 400 });
+    }
+
+    const { 
+      paymentGateway, 
+      aiProvider, 
+      storeName, 
+      currency, 
+      taxRate, 
+      hiddenGateways, 
+      maintenanceMode, 
+      maintenanceMessage 
+    } = result.data;
+
     const normalizedHiddenGateways = normalizeHiddenGateways(hiddenGateways);
-
-    // Validate gateway
-    if (paymentGateway && !SUPPORTED_GATEWAYS.includes(paymentGateway)) {
-      return NextResponse.json(
-        { error: `Unsupported gateway: ${paymentGateway}. Supported: ${SUPPORTED_GATEWAYS.join(", ")}` },
-        { status: 400 }
-      );
-    }
-
-    // Validate AI Provider
-    if (aiProvider && !SUPPORTED_AI_PROVIDERS.includes(aiProvider)) {
-      return NextResponse.json(
-        { error: `Unsupported AI provider: ${aiProvider}. Supported: ${SUPPORTED_AI_PROVIDERS.join(", ")}` },
-        { status: 400 }
-      );
-    }
 
     // Get existing settings to preserve fields not being updated
     const existing = await prisma.siteSettings.findUnique({ where: { id: "global" } });

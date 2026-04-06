@@ -1,0 +1,39 @@
+{
+  "common": {
+    "search": "Search products...",
+    "cart": "Cart",
+    "login": "Login",
+    "signup": "Sign Up",
+    "support": "Support",
+    "home": "Home",
+    "categories": "Categories",
+    "trending": "Trending Now",
+    "new_arrivals": "New Arrivals",
+    "account": "My Account",
+    "orders": "Orders",
+    "logout": "Logout",
+    "add_to_cart": "Add to Cart",
+    "added": "Added to Cart",
+    "buy_now": "Buy Now",
+    "price": "Price",
+    "variant": "Choose Option"
+  },
+  "chat": {
+    "title": "Koda Assistant",
+    "placeholder": "Ask about products, orders, or deals...",
+    "welcome": "Hello! I'm Koda. How can I help you today?",
+    "human_handoff": "Connecting to a human agent..."
+  },
+  "hero": {
+    "title": "Curated Elegance for Your Home",
+    "subtitle": "Discover a collection of premium, sustainable products designed for modern living.",
+    "cta": "Shop Collection"
+  },
+  "footer": {
+    "about": "Koda Store is a destination for curated lifestyle products. We focus on quality, sustainability, and timeless design.",
+    "quick_links": "Quick Links",
+    "customer_service": "Customer Service",
+    "newsletter": "Join our Newsletter",
+    "copyright": "© 2026 Koda Store. All rights reserved."
+  }
+}

@@ -18,7 +18,14 @@ export default async function AdminDashboard() {
     prisma.order.findMany({
       take: 6,
       orderBy: { createdAt: "desc" },
-      include: { user: { select: { name: true, email: true } } },
+      select: {
+        id: true,
+        total: true,
+        status: true,
+        currency: true,
+        createdAt: true,
+        user: { select: { name: true, email: true } },
+      },
     }),
     prisma.siteSettings.findUnique({ where: { id: "global" } }),
   ]);

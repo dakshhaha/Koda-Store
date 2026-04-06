@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { sanitizeString } from "@/lib/validation";
+import { moderateContent } from "@/lib/moderation";
 
 interface PersistedChatMessage {
   role: "user" | "assistant" | "system";
@@ -151,7 +152,7 @@ export async function GET(request: Request) {
       if (!userSession) {
         return NextResponse.json({ success: true, sessions: [] });
       }
-      const sessions = await prisma.supportSession.findMany({
+      const sessions = await (prisma as any).supportSession.findMany({
         where: { userId: userSession.userId },
         orderBy: { updatedAt: "desc" },
         take: 10,
@@ -160,10 +161,10 @@ export async function GET(request: Request) {
             orderBy: { createdAt: "desc" },
             take: 1,
           },
-        },
+        } as any,
       });
       
-      const sessionList = sessions.map(s => {
+      const sessionList = (sessions as any[]).map((s: any) => {
         const lastMsg = s.chatMessages[0]?.content || "No messages yet";
         return {
           id: s.id,
@@ -176,7 +177,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: true, sessions: sessionList });
     }
 
-    const supportSession = await prisma.supportSession.findUnique({
+    const supportSession = await (prisma.supportSession as any).findUnique({
       where: { id: sessionId },
       include: {
         chatMessages: {
@@ -198,7 +199,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Forbidden." }, { status: 403 });
     }
 
-    const messages = (supportSession.chatMessages || []).map((m) => ({
+    const messages = ((supportSession as any).chatMessages || []).map((m: any) => ({
       role: m.role,
       content: m.content,
       isHuman: m.isHuman,
@@ -219,25 +220,29 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    // Rate limit: 20/min for anonymous, 40/min for authenticated
+    // Rate limit: 8/min for authenticated, 3/min for anonymous (decreased for safety)
     const clientIp = getClientIp(request);
     const userSession = await getSession();
     const rateLimitKey = `chat:${userSession?.userId || clientIp}`;
-    const limit = userSession ? 40 : 20;
-    const rl = rateLimit(rateLimitKey, limit, 60_000);
+    const limit = userSession ? 8 : 3;
+    const rl = await rateLimit(rateLimitKey, limit, 60_000);
     if (!rl.allowed) {
       return NextResponse.json(
         { error: "Too many requests. Please try again shortly." },
         { status: 429, headers: { "Retry-After": String(rl.retryAfterSeconds) } }
       );
     }
-
     const { messages, provider, sessionId } = await request.json();
     const normalizedMessages = normalizeMessages(messages);
 
-    // Sanitize message content
-    for (const msg of normalizedMessages) {
-      msg.content = sanitizeString(msg.content, 4000);
+    // 1. Moderate & Sanitize
+    const latestUserEntry = [...normalizedMessages].reverse().find(m => m.role === "user");
+    if (latestUserEntry) {
+      const mod = moderateContent(latestUserEntry.content);
+      if (mod.flagged) {
+        return NextResponse.json({ error: mod.reason || "Content flagged by safety policy." }, { status: 400 });
+      }
+      latestUserEntry.content = sanitizeString(latestUserEntry.content, 4000);
     }
 
     if (normalizedMessages.length === 0) {
@@ -245,7 +250,7 @@ export async function POST(request: Request) {
     }
 
     const existingSupportSession = sessionId
-      ? await prisma.supportSession.findUnique({ 
+      ? await (prisma.supportSession as any).findUnique({ 
           where: { id: sessionId },
           include: { chatMessages: { orderBy: { createdAt: "asc" } } }
         })
@@ -267,7 +272,7 @@ export async function POST(request: Request) {
 
     if ((existingSupportSession?.status === "human_needed" || existingSupportSession?.status === "agent_active") && sessionId) {
       const waitingNotice = "A human support agent has taken over this chat. Please hold on while they reply.";
-      const existingMessages = (existingSupportSession.chatMessages || []).map(m => ({
+      const existingMessages = ((existingSupportSession as any).chatMessages || []).map((m: any) => ({
         role: m.role,
         content: m.content,
         isHuman: m.isHuman
@@ -284,7 +289,7 @@ export async function POST(request: Request) {
           latestStored?.role === "user" && latestStored.content.trim() === latestUserEntry.content.trim();
 
         if (!isDuplicateUserMessage) {
-          await prisma.chatMessage.create({
+          await (prisma as any).chatMessage.create({
             data: {
               sessionId: sessionId,
               role: "user",
@@ -311,71 +316,89 @@ export async function POST(request: Request) {
       });
     }
 
-    const [products, categories, activeCoupons, recommendedOffers, recentOrders, settings] = await Promise.all([
-      prisma.product.findMany({
-        take: 50,
-        orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
-        select: {
-          id: true,
-          name: true,
-          price: true,
-          salePrice: true,
-          description: true,
-          slug: true,
-          stock: true,
-          images: true,
-          category: { select: { name: true } },
-        },
-      }),
-      prisma.category.findMany({ select: { name: true, slug: true } }),
-      prisma.coupon.findMany({
-        where: {
-          active: true,
-          OR: [{ startsAt: null }, { startsAt: { lte: new Date() } }],
-          AND: [{ OR: [{ endsAt: null }, { endsAt: { gte: new Date() } }] }],
-        },
-        take: 10,
-        orderBy: [{ endsAt: "asc" }, { createdAt: "desc" }],
-        select: {
-          code: true,
-          discountType: true,
-          discountValue: true,
-          minOrder: true,
-          maxDiscount: true,
-          endsAt: true,
-        },
-      }),
-      prisma.product.findMany({
-        where: {
-          OR: [{ salePrice: { not: null } }, { featured: true }],
-        },
-        take: 10,
-        orderBy: [{ salePrice: "asc" }, { featured: "desc" }, { createdAt: "desc" }],
-        select: {
-          name: true,
-          slug: true,
-          price: true,
-          salePrice: true,
-          category: { select: { name: true } },
-        },
-      }),
-      userSession
-        ? prisma.order.findMany({
-            where: { userId: userSession.userId },
-            orderBy: { createdAt: "desc" },
-            take: 6,
-            select: {
-              id: true,
-              status: true,
-              total: true,
-              paymentGateway: true,
-              couponCode: true,
-              createdAt: true,
-            },
-          })
-        : Promise.resolve([]),
-      prisma.siteSettings.findUnique({ where: { id: "global" } }),
-    ]);
+    let products: any[] = [];
+    let categories: any[] = [];
+    let activeCoupons: any[] = [];
+    let recommendedOffers: any[] = [];
+    let recentOrders: any[] = [];
+    let settings: any = null;
+
+    try {
+      const results = await Promise.allSettled([
+        prisma.product.findMany({
+          take: 50,
+          orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
+          select: {
+            id: true,
+            name: true,
+            price: true,
+            salePrice: true,
+            description: true,
+            slug: true,
+            stock: true,
+            images: true,
+            category: { select: { name: true } },
+          },
+        }),
+        prisma.category.findMany({ select: { name: true, slug: true } }),
+        prisma.coupon.findMany({
+          where: {
+            active: true,
+            OR: [{ startsAt: null }, { startsAt: { lte: new Date() } }],
+            AND: [{ OR: [{ endsAt: null }, { endsAt: { gte: new Date() } }] }],
+          },
+          take: 10,
+          orderBy: [{ endsAt: "asc" }, { createdAt: "desc" }],
+          select: {
+            code: true,
+            discountType: true,
+            discountValue: true,
+            minOrder: true,
+            maxDiscount: true,
+            endsAt: true,
+          },
+        }),
+        prisma.product.findMany({
+          where: {
+            OR: [{ salePrice: { not: null } }, { featured: true }],
+          },
+          take: 10,
+          orderBy: [{ salePrice: "asc" }, { featured: "desc" }, { createdAt: "desc" }],
+          select: {
+            name: true,
+            slug: true,
+            price: true,
+            salePrice: true,
+            category: { select: { name: true } },
+          },
+        }),
+        userSession
+          ? prisma.order.findMany({
+              where: { userId: userSession.userId },
+              orderBy: { createdAt: "desc" },
+              take: 6,
+              select: {
+                id: true,
+                status: true,
+                total: true,
+                paymentGateway: true,
+                couponCode: true,
+                createdAt: true,
+              },
+            })
+          : Promise.resolve([]),
+        prisma.siteSettings.findUnique({ where: { id: "global" } }),
+      ]);
+
+      if (results[0].status === "fulfilled") products = results[0].value;
+      if (results[1].status === "fulfilled") categories = results[1].value;
+      if (results[2].status === "fulfilled") activeCoupons = results[2].value;
+      if (results[3].status === "fulfilled") recommendedOffers = results[3].value;
+      if (results[4].status === "fulfilled") recentOrders = results[4].value;
+      if (results[5].status === "fulfilled") settings = results[5].value;
+    } catch (e) {
+      console.warn("Catalog context fetch partially failed, continuing with empty context:", e);
+    }
 
     const catalogContext = summarizeCatalog(products);
     const categoryContext = categories.map(c => `- ${c.name} (/categories/${c.slug})`).join("\n");
@@ -439,67 +462,69 @@ AI RULES:
     }
 
     const aiProvider = getAIProvider(selectedProvider);
-    let aiResponse = "";
-    try {
-      aiResponse = await aiProvider.chat(enhancedMessages, userSession?.userId);
-    } catch (aiError) {
-      console.error("AI provider error:", aiError);
-      aiResponse = "I'm sorry, I'm having trouble connecting right now. Please try again or ask for a human agent.";
-    }
-
-    const handoffConfirmationPhrase = "I'll connect you to our support team right now.";
-    const needsHandoffFromAI = aiResponse.includes(handoffConfirmationPhrase);
     
-    // Only handoff if user specifically asks, not just because they said "agent" in context
-    const userWantsHandoff = latestUserMessage.toLowerCase().match(/^(connect me to a human|talk to human|agent please|speak with agent)$/i);
-    
-    let finalStatus = (needsHandoffFromAI || userWantsHandoff) ? "human_needed" : "ai_handling";
+    // STREAMING FLOW
+    const stream = await aiProvider.chatStream(enhancedMessages, userSession?.userId);
+    let fullResponse = "";
 
-    // SECURITY: Force login for human agents
-    if (finalStatus === "human_needed" && !userSession) {
-      finalStatus = "ai_handling";
-      aiResponse = "I'd like to connect you to a human agent, but you must be logged in to access priority human support. Please log in or create an account, then ask me again!";
-    }
+    const transformStream = new TransformStream({
+      async transform(chunk, controller) {
+        const text = new TextDecoder().decode(chunk);
+        fullResponse += text;
+        controller.enqueue(chunk);
+      },
+      async flush() {
+        // BACKGROUND PERSISTENCE: Save the complete message after the stream finishes
+        const handoffConfirmationPhrase = "I'll connect you to our support team right now.";
+        const needsHandoffFromAI = fullResponse.includes(handoffConfirmationPhrase);
+        const userWantsHandoff = latestUserMessage.toLowerCase().match(/^(connect me to a human|talk to human|agent please|speak with agent)$/i);
+        let finalStatus = (needsHandoffFromAI || userWantsHandoff) ? "human_needed" : "ai_handling";
 
-      // Create or update session, then persist messages as ChatMessage rows
-      const session = await prisma.supportSession.upsert({
-        where: { id: sessionId },
-        update: {
-          status: finalStatus,
-          userId: existingSupportSession?.userId || userSession?.userId || null,
-          updatedAt: new Date(),
-        },
-        create: {
-          id: sessionId,
-          userId: userSession?.userId || null,
-          status: finalStatus,
-        },
-      });
+        if (finalStatus === "human_needed" && !userSession) {
+          finalStatus = "ai_handling";
+        }
 
-      // Save the latest user message and AI response as ChatMessage rows
-      const latestMsg = normalizedMessages[normalizedMessages.length - 1];
-      if (latestMsg && latestMsg.role === "user") {
-        await prisma.chatMessage.create({
-          data: { sessionId: session.id, role: "user", content: latestMsg.content, isHuman: false },
-        });
+        try {
+          const session = await prisma.supportSession.upsert({
+            where: { id: sessionId },
+            update: {
+              status: finalStatus,
+              userId: existingSupportSession?.userId || userSession?.userId || null,
+              updatedAt: new Date(),
+            },
+            create: {
+              id: sessionId,
+              userId: userSession?.userId || null,
+              status: finalStatus,
+            },
+          });
+
+          const latestMsg = normalizedMessages[normalizedMessages.length - 1];
+          if (latestMsg && latestMsg.role === "user") {
+            await (prisma as any).chatMessage.create({
+              data: { sessionId: session.id, role: "user", content: latestMsg.content, isHuman: false },
+            });
+          }
+          await (prisma as any).chatMessage.create({
+            data: { sessionId: session.id, role: "assistant", content: fullResponse, isHuman: false },
+          });
+        } catch (e) {
+          console.error("Stream persistence error:", e);
+        }
       }
-      await prisma.chatMessage.create({
-        data: { sessionId: session.id, role: "assistant", content: aiResponse, isHuman: false },
-      });
+    });
 
-    return NextResponse.json({
-      success: true,
-      provider: aiProvider.name,
-      response: aiResponse,
-      status: finalStatus,
+    return new Response(stream.pipeThrough(transformStream), {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+      },
     });
   } catch (error) {
     console.error("AI Chat error:", error);
     return NextResponse.json({
-      success: true,
-      provider: "fallback",
-      response: "I'm sorry, I'm having trouble processing your request right now. Please try again in a moment.",
-      status: "ai_handling",
-    });
+      error: "I'm sorry, I'm having trouble processing your request right now."
+    }, { status: 500 });
   }
 }

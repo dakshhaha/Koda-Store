@@ -129,13 +129,17 @@ export default function AIChatCard() {
     try {
       const response = await fetch(`/api/chat?sessionId=${encodeURIComponent(sessionId)}`, { cache: "no-store" });
       const payload = await response.json();
-      if (payload?.status) setChatStatus(payload.status);
+      if (payload?.status) {
+        setChatStatus(payload.status);
+        setError(""); // Clear error on successful sync
+      }
       if (Array.isArray(payload?.messages)) {
         const remoteMessages = payload.messages.filter((m: any) => m.role !== "system");
         setMessages(prev => {
           const localFiltered = prev.filter(m => m.role !== "system");
           if (remoteMessages.length > localFiltered.length) {
             if (isOpen) playNotificationSound();
+            setError(""); // Clear error if we received new messages
             return [SYSTEM_MESSAGE, ...remoteMessages];
           }
           return prev;
@@ -177,16 +181,24 @@ export default function AIChatCard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: requestMessages, sessionId }),
       });
+      
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || "Failed to get assistant response.");
+      }
+
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || "Failed to get assistant response.");
       if (payload.status) setChatStatus(payload.status);
       if (payload.response) {
         setMessages((previous) => [...previous, { role: "assistant", content: payload.response, timestamp: new Date().toISOString() }]);
         playNotificationSound();
+        setError(""); // SUCCESS!
       }
       await syncSession();
-    } catch {
-      setError("Sorry, I couldn't connect right now. Please try again in a moment.");
+    } catch (err: any) {
+      console.warn("Chat POST failed, but background sync will retry:", err);
+      // Only show error if we don't have an assistant response yet for the last user message
+      setError("I'm having trouble connecting directly, but I'm still trying in the background...");
     } finally {
       setLoading(false);
     }

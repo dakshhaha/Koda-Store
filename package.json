@@ -13,8 +13,10 @@
     "@paypal/checkout-server-sdk": "^1.0.3",
     "@prisma/adapter-pg": "^7.6.0",
     "@prisma/client": "^7.6.0",
+    "@upstash/redis": "^1.37.0",
     "bcryptjs": "^3.0.3",
     "cookie": "^1.1.1",
+    "date-fns": "^4.1.0",
     "dotenv": "^17.3.1",
     "jose": "^6.2.2",
     "jspdf": "^4.2.1",
@@ -28,7 +30,9 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "recharts": "^3.8.1",
-    "stripe": "^21.0.1"
+    "stripe": "^21.0.1",
+    "zod": "^4.3.6",
+    "zod-validation-error": "^5.0.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

@@ -2,8 +2,31 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
+import { z } from "zod";
+import { fromError } from "zod-validation-error";
+
+const SignupSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  phone: z.string().optional(),
+  address: z.string().optional(),
+  city: z.string().optional(),
+  zip: z.string().optional(),
+  country: z.string().optional(),
+  referralCode: z.string().optional(),
+});
+
 export async function POST(request: Request) {
   try {
+    const body = await request.json();
+    const result = SignupSchema.safeParse(body);
+
+    if (!result.success) {
+      const validationError = fromError(result.error);
+      return NextResponse.json({ error: validationError.toString() }, { status: 400 });
+    }
+
     const { 
       email, 
       password, 
@@ -14,11 +37,7 @@ export async function POST(request: Request) {
       zip, 
       country,
       referralCode,
-    } = await request.json();
-
-    if (!email || !password || !name) {
-      return NextResponse.json({ error: "Email, Password, and Identity are mandatory." }, { status: 400 });
-    }
+    } = result.data;
 
     // Check availability
     const existingUser = await prisma.user.findUnique({
