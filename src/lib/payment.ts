@@ -404,7 +404,7 @@ class CashOnDeliveryGateway implements PaymentGateway {
   }
 
   async verifyPayment() {
-    return { verified: false, status: "pending" };
+    return { verified: true, status: "cod_pending" };
   }
 }
 

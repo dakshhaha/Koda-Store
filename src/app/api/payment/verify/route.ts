@@ -88,11 +88,11 @@ export async function POST(request: Request) {
       data: {
         paymentId: normalizedPaymentId,
         paymentGateway: gatewayName,
-        status: result.verified ? "paid" : "pending",
+        status: (gatewayName === "cod") ? "pending" : (result.verified ? "paid" : "pending"),
       },
     });
 
-    console.log("Order updated:", { orderId: order.id, newStatus: result.verified ? "paid" : "pending" });
+    console.log("Order updated:", { orderId: order.id, newStatus: (gatewayName === "cod") ? "pending" : (result.verified ? "paid" : "pending") });
 
     return NextResponse.json({
       success: result.verified,

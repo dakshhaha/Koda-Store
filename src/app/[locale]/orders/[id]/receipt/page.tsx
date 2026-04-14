@@ -130,7 +130,9 @@ export default function ReceiptPage() {
   const [isWin, setIsWin] = useState(true);
 
   // Derive isPaid status based on order (it may be null initially, but that's okay for effects safely checked)
+  const isCod = order?.paymentGateway?.toLowerCase() === "cod";
   const isPaid = order ? ["paid", "delivered", "shipped"].includes(String(order.status || "").toLowerCase()) : false;
+  const isSuccessful = isPaid || (isCod && order?.status === "pending");
 
   useEffect(() => {
     if (typeof window !== "undefined" && isPaid) {
@@ -450,11 +452,13 @@ export default function ReceiptPage() {
       {/* Receipt Body */}
       <div ref={receiptRef} className="admin-card" style={{ maxWidth: '700px', margin: '0 auto', padding: '3rem', fontFamily: 'monospace, sans-serif' }}>
         {/* Success Banner */}
-        <div style={{ textAlign: 'center', marginBottom: '2rem', padding: '1.5rem', background: isPaid ? '#16a34a10' : '#d9770615', borderRadius: '8px' }}>
-          <CheckCircle size={36} color={isPaid ? "#16a34a" : "#d97706"} style={{ marginBottom: '0.75rem' }} />
-          <h1 style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>{isPaid ? "Payment Successful" : "Payment Pending"}</h1>
+        <div style={{ textAlign: 'center', marginBottom: '2rem', padding: '1.5rem', background: isSuccessful ? '#16a34a10' : '#d9770615', borderRadius: '8px' }}>
+          <CheckCircle size={36} color={isSuccessful ? "#16a34a" : "#d97706"} style={{ marginBottom: '0.75rem' }} />
+          <h1 style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>
+            {isPaid ? "Payment Successful" : isCod ? "Order Confirmed" : "Payment Pending"}
+          </h1>
           <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem' }}>
-            {isPaid ? "Thank you for your order!" : "Your payment is still being confirmed with the gateway."}
+            {isPaid ? "Thank you for your order!" : isCod ? "Your order has been placed and will be paid on delivery." : "Your payment is still being confirmed with the gateway."}
           </p>
         </div>
 
