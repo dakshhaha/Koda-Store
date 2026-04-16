@@ -3,6 +3,10 @@
 
 Koda Store is a high-performance, editorial e-commerce platform designed with the **Digital Curator** philosophy. Version 0.4.0 marks the transition from "AI-First Proof of Concept" to "Enterprise-Ready Stabilized Storefront".
 
+# Live Demo
+
+Live Demo Link: https://koda-store.vercel.app/
+
 <p align="left">
   <a href="https://ko-fi.com/dakshisoffline" target="_blank">
     <img src="https://img.shields.io/badge/Support%20on%20Ko--fi-FF5E5B?style=for-the-badge&logo=kofi&logoColor=white" alt="Ko-fi" />
